@@ -53,35 +53,44 @@ enum ClockWeight: String, CaseIterable, Identifiable, Codable {
     }
 }
 
-enum ClockFontFamily: String, CaseIterable, Identifiable, Codable {
-    case sfPro = "SF Pro"
-    case sfProRounded = "SF Pro Rounded"
-    case sfMono = "SF Mono"
-    case newYork = "New York"
+enum DigitMaterial: String, CaseIterable, Identifiable, Codable {
+    case solid = "단색"
+    case gradient = "그라데이션"
+    case glass = "글래스 (배경 비침)"
+    case overlay = "오버레이 (배경과 어우러짐)"
     var id: String { rawValue }
-    var design: Font.Design {
-        switch self {
-        case .sfPro:        return .default
-        case .sfProRounded: return .rounded
-        case .sfMono:       return .monospaced
-        case .newYork:      return .serif
-        }
-    }
+}
+
+enum DigitAnimation: String, CaseIterable, Identifiable, Codable {
+    case none = "없음"
+    case fade = "페이드"
+    case roll = "롤"
+    case slideUp = "위로 슬라이드"
+    case slideDown = "아래로 슬라이드"
+    case scale = "스케일"
+    case flip = "플립 (3D)"
+    case depth = "뎁스"
+    case blur = "블러"
+    var id: String { rawValue }
 }
 
 struct ClockStyle: Equatable {
     var family: ClockFontFamily = .sfPro
     var weight: ClockWeight = .ultraLight
-    var fontSize: CGFloat = 220
+    var fontSize: CGFloat = 240
     var tracking: CGFloat = 0
+    var stretchY: CGFloat = 1.4
     var format: ClockFormat = .hm24
     var color: Color = .white
     var separator: SeparatorStyle = .colon
+    var material: DigitMaterial = .solid
+    var transition: DigitAnimation = .roll
 }
 
 struct Transform: Equatable {
     var position: CGPoint
-    var scale: CGFloat = 1
+    var scaleX: CGFloat = 1
+    var scaleY: CGFloat = 1
     var rotation: Angle = .zero
     var opacity: Double = 1
     var zIndex: Double = 0
@@ -138,6 +147,8 @@ enum SystemAlarm: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class AppState {
+    static let logicalCanvasSize = CGSize(width: 1280, height: 800)
+
     var mode: CanvasMode = .clock
     var clockStyle = ClockStyle()
 
@@ -154,6 +165,7 @@ final class AppState {
 
     var inspectorVisible: Bool = true
     var chromeVisible: Bool = true
+    var alwaysOnTop: Bool = false
 
     var alarmChoice: AlarmChoice = .system(SystemAlarm.glass.rawValue)
     var alarmVolume: Float = 0.8
@@ -190,7 +202,9 @@ final class AppState {
         let natural = TimeText.naturalSize(
             text: sample,
             fontSize: clockStyle.fontSize,
-            extraTracking: clockStyle.tracking
+            extraTracking: clockStyle.tracking,
+            stretchY: clockStyle.stretchY,
+            separator: clockStyle.separator
         )
         if items[idx].size != natural {
             items[idx].size = natural
@@ -456,9 +470,12 @@ final class AppState {
                 weight: clockStyle.weight,
                 fontSize: clockStyle.fontSize,
                 tracking: clockStyle.tracking,
+                stretchY: clockStyle.stretchY,
                 format: clockStyle.format,
                 color: PersistedColor(color: clockStyle.color),
-                separator: clockStyle.separator
+                separator: clockStyle.separator,
+                material: clockStyle.material,
+                animation: clockStyle.transition
             ),
             items: items.map(PersistedItem.from),
             backgroundColor: PersistedColor(color: backgroundColor),
@@ -466,7 +483,8 @@ final class AppState {
             timerDuration: timerDurationSeconds,
             alarmChoice: alarmChoice,
             alarmVolume: alarmVolume,
-            customAlarms: customAlarms
+            customAlarms: customAlarms,
+            alwaysOnTop: alwaysOnTop
         )
     }
 
@@ -484,9 +502,12 @@ final class AppState {
             weight: s.clockStyle.weight,
             fontSize: s.clockStyle.fontSize,
             tracking: s.clockStyle.tracking,
+            stretchY: s.clockStyle.stretchY,
             format: s.clockStyle.format,
             color: s.clockStyle.color.color,
-            separator: s.clockStyle.separator
+            separator: s.clockStyle.separator,
+            material: s.clockStyle.material,
+            transition: s.clockStyle.animation
         )
         backgroundColor = s.backgroundColor.color
         backgroundImageID = s.backgroundImageID
@@ -495,6 +516,7 @@ final class AppState {
         alarmChoice = s.alarmChoice
         alarmVolume = s.alarmVolume
         customAlarms = s.customAlarms
+        alwaysOnTop = s.alwaysOnTop
 
         items = s.items.map { $0.toCanvasItem() }
         selectedID = nil

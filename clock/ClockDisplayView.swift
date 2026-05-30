@@ -13,14 +13,16 @@ struct ClockDisplayView: View {
             }()
             TimeText(
                 text: label,
+                family: state.clockStyle.family,
+                weight: state.clockStyle.weight,
                 fontSize: state.clockStyle.fontSize,
-                weight: state.clockStyle.weight.fontWeight,
-                design: state.clockStyle.family.design,
                 color: state.clockStyle.color,
                 extraTracking: state.clockStyle.tracking,
-                separator: state.clockStyle.separator
+                stretchY: state.clockStyle.stretchY,
+                separator: state.clockStyle.separator,
+                material: state.clockStyle.material,
+                animation: state.clockStyle.transition
             )
-            .animation(.snappy(duration: 0.18), value: label)
         }
     }
 

@@ -42,11 +42,19 @@ struct ContentView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.inspectorVisible)
         .frame(minWidth: 900, minHeight: 600)
         .preferredColorScheme(.dark)
+        .background(
+            WindowAccessor { window in
+                WindowPinning.apply(state.alwaysOnTop, to: window)
+            }
+        )
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {
             state.chromeVisible.toggle()
             return .handled
+        }
+        .onChange(of: state.alwaysOnTop) { _, _ in
+            state.scheduleSave()
         }
         .onChange(of: state.clockStyle) { _, _ in
             state.recomputeClockSize()

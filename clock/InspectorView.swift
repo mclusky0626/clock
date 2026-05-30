@@ -17,10 +17,10 @@ struct InspectorView: View {
                         switch item.kind {
                         case .clock:
                             clockSection
-                            transformSection(itemIndex: idx)
+                            transformSection(itemID: id)
                         case .photo:
-                            transformSection(itemIndex: idx)
-                            photoSection(itemIndex: idx)
+                            transformSection(itemID: id)
+                            photoSection(itemID: id)
                             layerSection(id: id)
                             deleteSection
                         }
@@ -176,7 +176,21 @@ struct InspectorView: View {
         @Bindable var s = state
         return VStack(alignment: .leading, spacing: 12) {
             sectionLabel("시계 스타일")
+            clockPickers(s: s)
+            clockSliders(s: s)
+            row("색상") {
+                ColorPicker("", selection: $s.clockStyle.color, supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 40)
+            }
+            divider
+        }
+    }
 
+    @ViewBuilder
+    private func clockPickers(s: AppState) -> some View {
+        @Bindable var s = s
+        Group {
             row("형식") {
                 Picker("", selection: $s.clockStyle.format) {
                     ForEach(ClockFormat.allCases) { f in Text(f.rawValue).tag(f) }
@@ -184,7 +198,9 @@ struct InspectorView: View {
             }
             row("폰트") {
                 Picker("", selection: $s.clockStyle.family) {
-                    ForEach(ClockFontFamily.allCases) { f in Text(f.rawValue).tag(f) }
+                    ForEach(ClockFontFamily.allCases) { f in
+                        Text(f.displayName).tag(f)
+                    }
                 }.labelsHidden()
             }
             row("두께") {
@@ -197,6 +213,23 @@ struct InspectorView: View {
                     ForEach(SeparatorStyle.allCases) { sep in Text(sep.displayName).tag(sep) }
                 }.labelsHidden()
             }
+            row("재질") {
+                Picker("", selection: $s.clockStyle.material) {
+                    ForEach(DigitMaterial.allCases) { m in Text(m.rawValue).tag(m) }
+                }.labelsHidden()
+            }
+            row("전환") {
+                Picker("", selection: $s.clockStyle.transition) {
+                    ForEach(DigitAnimation.allCases) { a in Text(a.rawValue).tag(a) }
+                }.labelsHidden()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func clockSliders(s: AppState) -> some View {
+        @Bindable var s = s
+        Group {
             slider(
                 label: "크기",
                 value: $s.clockStyle.fontSize,
@@ -205,43 +238,51 @@ struct InspectorView: View {
                 display: { "\(Int($0))" }
             )
             slider(
+                label: "세로 늘이기",
+                value: $s.clockStyle.stretchY,
+                range: 0.6...2.4,
+                step: 0.01,
+                display: { String(format: "%.2fx", $0) }
+            )
+            slider(
                 label: "자간",
                 value: $s.clockStyle.tracking,
                 range: -20...40,
                 step: 0.5,
                 display: { String(format: "%.1f", $0) }
             )
-            row("색상") {
-                ColorPicker("", selection: $s.clockStyle.color, supportsOpacity: false)
-                    .labelsHidden()
-                    .frame(width: 40)
-            }
-            divider
         }
     }
 
     // MARK: Transform
 
-    private func transformSection(itemIndex idx: Int) -> some View {
+    private func transformSection(itemID id: UUID) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("배치")
             slider(
-                label: "크기",
-                value: scaleBinding(idx: idx),
-                range: 0.1...6,
+                label: "가로 크기",
+                value: scaleXBinding(id: id),
+                range: 0.05...12,
+                step: 0.01,
+                display: { String(format: "%.0f%%", $0 * 100) }
+            )
+            slider(
+                label: "세로 크기",
+                value: scaleYBinding(id: id),
+                range: 0.05...12,
                 step: 0.01,
                 display: { String(format: "%.0f%%", $0 * 100) }
             )
             slider(
                 label: "회전",
-                value: rotationBinding(idx: idx),
+                value: rotationBinding(id: id),
                 range: -180...180,
                 step: 1,
                 display: { String(format: "%.0f°", $0) }
             )
             slider(
                 label: "불투명도",
-                value: opacityBinding(idx: idx),
+                value: opacityBinding(id: id),
                 range: 0...1,
                 step: 0.01,
                 display: { String(format: "%.0f%%", $0 * 100) }
@@ -252,19 +293,19 @@ struct InspectorView: View {
 
     // MARK: Photo
 
-    private func photoSection(itemIndex idx: Int) -> some View {
+    private func photoSection(itemID id: UUID) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("사진 모양")
             slider(
                 label: "모서리",
-                value: cornerBinding(idx: idx),
+                value: cornerBinding(id: id),
                 range: 0...200,
                 step: 1,
                 display: { String(format: "%.0f", $0) }
             )
             slider(
                 label: "그림자",
-                value: shadowBinding(idx: idx),
+                value: shadowBinding(id: id),
                 range: 0...80,
                 step: 1,
                 display: { String(format: "%.0f", $0) }
@@ -382,35 +423,41 @@ struct InspectorView: View {
         }
     }
 
-    // Item bindings
-    private func scaleBinding(idx: Int) -> Binding<CGFloat> {
+    // Item bindings — all use UUID lookup to avoid stale integer index crashes
+    private func scaleXBinding(id: UUID) -> Binding<CGFloat> {
         Binding(
-            get: { state.items[idx].transform.scale },
-            set: { state.items[idx].transform.scale = $0 }
+            get: { guard let i = state.index(of: id) else { return 1 }; return state.items[i].transform.scaleX },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].transform.scaleX = $0 }
         )
     }
-    private func rotationBinding(idx: Int) -> Binding<Double> {
+    private func scaleYBinding(id: UUID) -> Binding<CGFloat> {
         Binding(
-            get: { state.items[idx].transform.rotation.degrees },
-            set: { state.items[idx].transform.rotation = .degrees($0) }
+            get: { guard let i = state.index(of: id) else { return 1 }; return state.items[i].transform.scaleY },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].transform.scaleY = $0 }
         )
     }
-    private func opacityBinding(idx: Int) -> Binding<Double> {
+    private func rotationBinding(id: UUID) -> Binding<Double> {
         Binding(
-            get: { state.items[idx].transform.opacity },
-            set: { state.items[idx].transform.opacity = $0 }
+            get: { guard let i = state.index(of: id) else { return 0 }; return state.items[i].transform.rotation.degrees },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].transform.rotation = .degrees($0) }
         )
     }
-    private func cornerBinding(idx: Int) -> Binding<CGFloat> {
+    private func opacityBinding(id: UUID) -> Binding<Double> {
         Binding(
-            get: { state.items[idx].cornerRadius },
-            set: { state.items[idx].cornerRadius = $0 }
+            get: { guard let i = state.index(of: id) else { return 1 }; return state.items[i].transform.opacity },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].transform.opacity = $0 }
         )
     }
-    private func shadowBinding(idx: Int) -> Binding<CGFloat> {
+    private func cornerBinding(id: UUID) -> Binding<CGFloat> {
         Binding(
-            get: { state.items[idx].shadowRadius },
-            set: { state.items[idx].shadowRadius = $0 }
+            get: { guard let i = state.index(of: id) else { return 0 }; return state.items[i].cornerRadius },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].cornerRadius = $0 }
+        )
+    }
+    private func shadowBinding(id: UUID) -> Binding<CGFloat> {
+        Binding(
+            get: { guard let i = state.index(of: id) else { return 0 }; return state.items[i].shadowRadius },
+            set: { guard let i = state.index(of: id) else { return }; state.items[i].shadowRadius = $0 }
         )
     }
 

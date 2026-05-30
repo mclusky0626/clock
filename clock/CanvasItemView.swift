@@ -5,7 +5,8 @@ struct CanvasItemView: View {
     let itemID: UUID
 
     @State private var dragStartPosition: CGPoint?
-    @State private var resizeStartScale: CGFloat?
+    // Stored as (startScaleX, startScaleY) for all resize gestures
+    @State private var resizeStart: CGPoint?   // x = scaleX, y = scaleY at drag start
 
     var body: some View {
         if let idx = state.index(of: itemID) {
@@ -13,13 +14,15 @@ struct CanvasItemView: View {
             let isSelected = state.selectedID == itemID
             let showChrome = isSelected && state.chromeVisible
 
-            let scaledW = item.size.width * item.transform.scale
-            let scaledH = item.size.height * item.transform.scale
+            let sx = item.transform.scaleX
+            let sy = item.transform.scaleY
+            let scaledW = item.size.width  * sx
+            let scaledH = item.size.height * sy
 
             ZStack {
                 content(for: item)
                     .frame(width: item.size.width, height: item.size.height)
-                    .scaleEffect(item.transform.scale)
+                    .scaleEffect(x: sx, y: sy)
                     .frame(width: scaledW, height: scaledH)
 
                 if showChrome {
@@ -27,10 +30,28 @@ struct CanvasItemView: View {
                 }
             }
             .frame(width: scaledW, height: scaledH)
+            // Corner — proportional (both axes)
             .overlay(alignment: .bottomTrailing) {
                 if showChrome {
-                    resizeHandle(idx: idx, item: item)
+                    resizeHandle(symbol: "arrow.up.left.and.arrow.down.right")
+                        .gesture(cornerDrag(naturalSize: item.size))
                         .offset(x: 8, y: 8)
+                }
+            }
+            // Right edge — horizontal only
+            .overlay(alignment: .trailing) {
+                if showChrome {
+                    resizeHandle(symbol: "arrow.left.and.right")
+                        .gesture(edgeDrag(axis: .horizontal, naturalSize: item.size))
+                        .offset(x: 8, y: 0)
+                }
+            }
+            // Bottom edge — vertical only
+            .overlay(alignment: .bottom) {
+                if showChrome {
+                    resizeHandle(symbol: "arrow.up.and.down")
+                        .gesture(edgeDrag(axis: .vertical, naturalSize: item.size))
+                        .offset(x: 0, y: 8)
                 }
             }
             .rotationEffect(item.transform.rotation)
@@ -78,36 +99,69 @@ struct CanvasItemView: View {
             .allowsHitTesting(false)
     }
 
-    private func resizeHandle(idx: Int, item: CanvasItem) -> some View {
-        Image(systemName: "arrow.up.left.and.arrow.down.right")
-            .font(.system(size: 9, weight: .bold))
+    private func resizeHandle(symbol: String) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 8, weight: .bold))
             .foregroundStyle(.black.opacity(0.7))
             .frame(width: 18, height: 18)
             .background(
                 Circle()
                     .fill(Color.white)
-                    .overlay(Circle().stroke(Color.black.opacity(0.25), lineWidth: 0.5))
+                    .overlay(Circle().stroke(Color.black.opacity(0.2), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 1)
             )
             .contentShape(Circle())
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        if resizeStartScale == nil {
-                            resizeStartScale = state.items[idx].transform.scale
-                        }
-                        guard let start = resizeStartScale else { return }
-                        let base = state.items[idx].size
-                        let startW = base.width * start
-                        let newW = max(40, startW + value.translation.width)
-                        let newScale = newW / max(base.width, 1)
-                        state.items[idx].transform.scale = max(0.1, min(newScale, 6))
-                    }
-                    .onEnded { _ in
-                        resizeStartScale = nil
-                        state.scheduleSave()
-                    }
-            )
+    }
+
+    // MARK: - Gestures
+
+    /// Bottom-right corner: scales both X and Y proportionally from current ratio
+    private func cornerDrag(naturalSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                guard let idx = state.index(of: itemID) else { return }
+                if resizeStart == nil {
+                    let t = state.items[idx].transform
+                    resizeStart = CGPoint(x: t.scaleX, y: t.scaleY)
+                }
+                guard let start = resizeStart else { return }
+                let startX = start.x, startY = start.y
+                let visW = naturalSize.width  * startX
+                let visH = naturalSize.height * startY
+                let diagLen = max(1, sqrt(visW * visW + visH * visH))
+                let ux = visW / diagLen, uy = visH / diagLen
+                let delta = value.translation.width * ux + value.translation.height * uy
+                let factor = max(0.05, (diagLen + delta) / diagLen)
+                state.items[idx].transform.scaleX = max(0.05, min(startX * factor, 12))
+                state.items[idx].transform.scaleY = max(0.05, min(startY * factor, 12))
+            }
+            .onEnded { _ in resizeStart = nil; state.scheduleSave() }
+    }
+
+    enum ResizeAxis { case horizontal, vertical }
+
+    /// Side handles: change only one axis
+    private func edgeDrag(axis: ResizeAxis, naturalSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 1)
+            .onChanged { value in
+                guard let idx = state.index(of: itemID) else { return }
+                if resizeStart == nil {
+                    let t = state.items[idx].transform
+                    resizeStart = CGPoint(x: t.scaleX, y: t.scaleY)
+                }
+                guard let start = resizeStart else { return }
+                switch axis {
+                case .horizontal:
+                    let startW = naturalSize.width * start.x
+                    let newW = max(20, startW + value.translation.width)
+                    state.items[idx].transform.scaleX = max(0.05, min(newW / max(naturalSize.width, 1), 12))
+                case .vertical:
+                    let startH = naturalSize.height * start.y
+                    let newH = max(20, startH + value.translation.height)
+                    state.items[idx].transform.scaleY = max(0.05, min(newH / max(naturalSize.height, 1), 12))
+                }
+            }
+            .onEnded { _ in resizeStart = nil; state.scheduleSave() }
     }
 
     private func dragGesture(currentPosition: CGPoint) -> some Gesture {
