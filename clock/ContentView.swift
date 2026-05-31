@@ -40,7 +40,7 @@ struct ContentView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.chromeVisible)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.inspectorVisible)
-        .frame(minWidth: 900, minHeight: 600)
+        .frame(minWidth: 500, minHeight: 360)
         .preferredColorScheme(.dark)
         .background(
             WindowAccessor { window in
@@ -64,6 +64,12 @@ struct ContentView: View {
             state.recomputeClockSize()
             state.scheduleSave()
         }
+        .onChange(of: state.timerStyle) { _, _ in
+            state.recomputeClockSize()
+            state.scheduleSave()
+        }
+        .onChange(of: state.timerDiskColor) { _, _ in state.scheduleSave() }
+        .onChange(of: state.language) { _, _ in state.scheduleSave() }
         .onChange(of: state.backgroundColor) { _, _ in state.scheduleSave() }
         .onChange(of: state.timerDurationSeconds) { _, _ in state.scheduleSave() }
         .onChange(of: state.alarmVolume) { _, _ in state.scheduleSave() }
@@ -95,7 +101,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
                 .onHover { restorePillHover = $0 }
-                .help("UI 다시 보기 (ESC)")
+                .help(state.t(.showUI))
                 .padding(.top, 12)
                 .padding(.trailing, 14)
             }

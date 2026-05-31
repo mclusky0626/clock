@@ -26,11 +26,12 @@ struct InspectorView: View {
                         }
                     } else {
                         clockSection
-                        Text("캔버스의 사진이나 시계를 선택하면\n속성을 편집할 수 있습니다.")
+                        Text(state.t(.selectHint))
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .padding(.top, 4)
                     }
+                    languageSection
                 }
                 .padding(18)
             }
@@ -41,11 +42,11 @@ struct InspectorView: View {
     private var header: some View {
         let title: String = {
             guard let id = state.selectedID, let idx = state.index(of: id) else {
-                return "스타일"
+                return state.t(.style)
             }
             switch state.items[idx].kind {
-            case .clock: return "시계"
-            case .photo: return "사진"
+            case .clock: return state.t(.clock)
+            case .photo: return state.t(.photo)
             }
         }()
         return HStack {
@@ -66,28 +67,38 @@ struct InspectorView: View {
                     .foregroundStyle(.primary.opacity(0.8))
             }
             .buttonStyle(.plain)
-            .help("패널 닫기")
+            .help(state.t(.closePanel))
         }
     }
 
     // MARK: Timer
 
     private var timerSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("타이머")
+        @Bindable var s = state
+        return VStack(alignment: .leading, spacing: 10) {
+            sectionLabel(state.t(.timer))
+
+            Picker("", selection: $s.timerStyle) {
+                ForEach(TimerStyle.allCases) { st in
+                    Label(timerStyleName(st), systemImage: st.symbol).tag(st)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+
             HStack(spacing: 6) {
-                timerField(value: hoursBinding,   range: 0...99, suffix: "시")
+                timerField(value: hoursBinding,   range: 0...99, suffix: state.t(.hourSuffix))
                 Text(":").font(.system(size: 16, weight: .light)).foregroundStyle(.secondary)
-                timerField(value: minutesBinding, range: 0...59, suffix: "분")
+                timerField(value: minutesBinding, range: 0...59, suffix: state.t(.minuteSuffix))
                 Text(":").font(.system(size: 16, weight: .light)).foregroundStyle(.secondary)
-                timerField(value: secondsBinding, range: 0...59, suffix: "초")
+                timerField(value: secondsBinding, range: 0...59, suffix: state.t(.secondSuffix))
             }
             HStack(spacing: 8) {
                 Button {
                     if state.timerRunning { state.pauseTimer() } else { state.startTimer() }
                 } label: {
                     Label(
-                        state.timerRunning ? "일시정지" : "시작",
+                        state.timerRunning ? state.t(.pause) : state.t(.start),
                         systemImage: state.timerRunning ? "pause.fill" : "play.fill"
                     )
                     .frame(maxWidth: .infinity)
@@ -97,12 +108,27 @@ struct InspectorView: View {
                 Button {
                     state.resetTimer()
                 } label: {
-                    Label("리셋", systemImage: "arrow.counterclockwise")
+                    Label(state.t(.reset), systemImage: "arrow.counterclockwise")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
             }
+
+            if state.timerStyle == .disk {
+                row(state.t(.diskColor)) {
+                    ColorPicker("", selection: $s.timerDiskColor, supportsOpacity: false)
+                        .labelsHidden()
+                        .frame(width: 40)
+                }
+            }
             divider
+        }
+    }
+
+    private func timerStyleName(_ style: TimerStyle) -> String {
+        switch style {
+        case .digital: return state.t(.styleDigital)
+        case .disk:    return state.t(.styleDisk)
         }
     }
 
@@ -111,10 +137,10 @@ struct InspectorView: View {
     private var alarmSection: some View {
         @Bindable var s = state
         return VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("알람 사운드")
+            sectionLabel(state.t(.alarmSound))
 
             Picker("", selection: alarmSelectionBinding()) {
-                Text("끄기").tag(AlarmSelection.none)
+                Text(state.t(.off)).tag(AlarmSelection.none)
                 Divider()
                 ForEach(SystemAlarm.allCases) { sound in
                     Text(sound.rawValue).tag(AlarmSelection.system(sound.rawValue))
@@ -129,7 +155,7 @@ struct InspectorView: View {
             .labelsHidden()
 
             slider(
-                label: "볼륨",
+                label: state.t(.volume),
                 value: Binding(
                     get: { Double(s.alarmVolume) },
                     set: { s.alarmVolume = Float($0) }
@@ -143,7 +169,7 @@ struct InspectorView: View {
                 Button {
                     state.playAlarm()
                 } label: {
-                    Label("미리듣기", systemImage: "play.circle")
+                    Label(state.t(.preview), systemImage: "play.circle")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
@@ -151,7 +177,7 @@ struct InspectorView: View {
                 Button {
                     state.presentCustomAlarmPicker()
                 } label: {
-                    Label("MP3 추가", systemImage: "music.note.list")
+                    Label(state.t(.addMP3), systemImage: "music.note.list")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
@@ -161,7 +187,7 @@ struct InspectorView: View {
                 Button(role: .destructive) {
                     state.deleteCustomAlarm(id)
                 } label: {
-                    Label("선택된 사용자 사운드 삭제", systemImage: "trash")
+                    Label(state.t(.deleteCustomSound), systemImage: "trash")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
@@ -175,10 +201,10 @@ struct InspectorView: View {
     private var clockSection: some View {
         @Bindable var s = state
         return VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("시계 스타일")
+            sectionLabel(state.t(.clockStyle))
             clockPickers(s: s)
             clockSliders(s: s)
-            row("색상") {
+            row(state.t(.color)) {
                 ColorPicker("", selection: $s.clockStyle.color, supportsOpacity: false)
                     .labelsHidden()
                     .frame(width: 40)
@@ -190,37 +216,38 @@ struct InspectorView: View {
     @ViewBuilder
     private func clockPickers(s: AppState) -> some View {
         @Bindable var s = s
+        let lang = s.language
         Group {
-            row("형식") {
+            row(state.t(.format)) {
                 Picker("", selection: $s.clockStyle.format) {
                     ForEach(ClockFormat.allCases) { f in Text(f.rawValue).tag(f) }
                 }.labelsHidden()
             }
-            row("폰트") {
+            row(state.t(.font)) {
                 Picker("", selection: $s.clockStyle.family) {
                     ForEach(ClockFontFamily.allCases) { f in
                         Text(f.displayName).tag(f)
                     }
                 }.labelsHidden()
             }
-            row("두께") {
+            row(state.t(.weight)) {
                 Picker("", selection: $s.clockStyle.weight) {
                     ForEach(ClockWeight.allCases) { w in Text(w.displayName).tag(w) }
                 }.labelsHidden()
             }
-            row("분리자") {
+            row(state.t(.separator)) {
                 Picker("", selection: $s.clockStyle.separator) {
-                    ForEach(SeparatorStyle.allCases) { sep in Text(sep.displayName).tag(sep) }
+                    ForEach(SeparatorStyle.allCases) { sep in Text(sep.display(lang)).tag(sep) }
                 }.labelsHidden()
             }
-            row("재질") {
+            row(state.t(.material)) {
                 Picker("", selection: $s.clockStyle.material) {
-                    ForEach(DigitMaterial.allCases) { m in Text(m.rawValue).tag(m) }
+                    ForEach(DigitMaterial.allCases) { m in Text(m.display(lang)).tag(m) }
                 }.labelsHidden()
             }
-            row("전환") {
+            row(state.t(.transition)) {
                 Picker("", selection: $s.clockStyle.transition) {
-                    ForEach(DigitAnimation.allCases) { a in Text(a.rawValue).tag(a) }
+                    ForEach(DigitAnimation.allCases) { a in Text(a.display(lang)).tag(a) }
                 }.labelsHidden()
             }
         }
@@ -231,21 +258,21 @@ struct InspectorView: View {
         @Bindable var s = s
         Group {
             slider(
-                label: "크기",
+                label: state.t(.size),
                 value: $s.clockStyle.fontSize,
                 range: 60...520,
                 step: 1,
                 display: { "\(Int($0))" }
             )
             slider(
-                label: "세로 늘이기",
+                label: state.t(.stretchY),
                 value: $s.clockStyle.stretchY,
                 range: 0.6...2.4,
                 step: 0.01,
                 display: { String(format: "%.2fx", $0) }
             )
             slider(
-                label: "자간",
+                label: state.t(.tracking),
                 value: $s.clockStyle.tracking,
                 range: -20...40,
                 step: 0.5,
@@ -258,30 +285,30 @@ struct InspectorView: View {
 
     private func transformSection(itemID id: UUID) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("배치")
+            sectionLabel(state.t(.arrange))
             slider(
-                label: "가로 크기",
+                label: state.t(.width),
                 value: scaleXBinding(id: id),
                 range: 0.05...12,
                 step: 0.01,
                 display: { String(format: "%.0f%%", $0 * 100) }
             )
             slider(
-                label: "세로 크기",
+                label: state.t(.height),
                 value: scaleYBinding(id: id),
                 range: 0.05...12,
                 step: 0.01,
                 display: { String(format: "%.0f%%", $0 * 100) }
             )
             slider(
-                label: "회전",
+                label: state.t(.rotation),
                 value: rotationBinding(id: id),
                 range: -180...180,
                 step: 1,
                 display: { String(format: "%.0f°", $0) }
             )
             slider(
-                label: "불투명도",
+                label: state.t(.opacity),
                 value: opacityBinding(id: id),
                 range: 0...1,
                 step: 0.01,
@@ -295,16 +322,16 @@ struct InspectorView: View {
 
     private func photoSection(itemID id: UUID) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("사진 모양")
+            sectionLabel(state.t(.photoShape))
             slider(
-                label: "모서리",
+                label: state.t(.corner),
                 value: cornerBinding(id: id),
                 range: 0...200,
                 step: 1,
                 display: { String(format: "%.0f", $0) }
             )
             slider(
-                label: "그림자",
+                label: state.t(.shadow),
                 value: shadowBinding(id: id),
                 range: 0...80,
                 step: 1,
@@ -318,19 +345,19 @@ struct InspectorView: View {
 
     private func layerSection(id: UUID) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("레이어")
+            sectionLabel(state.t(.layer))
             HStack {
                 Button {
                     state.placeBehindClock(id)
                 } label: {
-                    Label("시계 뒤", systemImage: "rectangle.stack.badge.minus")
+                    Label(state.t(.behindClock), systemImage: "rectangle.stack.badge.minus")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
                 Button {
                     state.placeInFrontOfClock(id)
                 } label: {
-                    Label("시계 앞", systemImage: "rectangle.stack.badge.plus")
+                    Label(state.t(.frontClock), systemImage: "rectangle.stack.badge.plus")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
@@ -339,14 +366,14 @@ struct InspectorView: View {
                 Button {
                     state.sendBackward(id)
                 } label: {
-                    Label("맨 뒤", systemImage: "square.3.layers.3d.down.left")
+                    Label(state.t(.toBack), systemImage: "square.3.layers.3d.down.left")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
                 Button {
                     state.bringForward(id)
                 } label: {
-                    Label("맨 앞", systemImage: "square.3.layers.3d.top.filled")
+                    Label(state.t(.toFront), systemImage: "square.3.layers.3d.top.filled")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(GlassButtonStyle())
@@ -359,10 +386,26 @@ struct InspectorView: View {
         Button(role: .destructive) {
             state.deleteSelected()
         } label: {
-            Label("삭제", systemImage: "trash")
+            Label(state.t(.delete), systemImage: "trash")
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(GlassButtonStyle())
+    }
+
+    // MARK: Language
+
+    private var languageSection: some View {
+        @Bindable var s = state
+        return VStack(alignment: .leading, spacing: 8) {
+            sectionLabel(state.t(.language))
+            Picker("", selection: $s.language) {
+                ForEach(AppLanguage.allCases) { l in
+                    Text(l.displayName).tag(l)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
     }
 
     // MARK: Helpers

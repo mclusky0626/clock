@@ -10,7 +10,7 @@ struct TopToolbar: View {
         @Bindable var bindableState = state
 
         GlassPanel(cornerRadius: 20) {
-            HStack(alignment: .center, spacing: 10) {
+            HStack(alignment: .center, spacing: 8) {
                 ModeSegment(elementHeight: elementHeight)
                     .environment(state)
 
@@ -19,18 +19,20 @@ struct TopToolbar: View {
                 Button {
                     state.presentPhotoPicker()
                 } label: {
-                    Label("사진 추가", systemImage: "photo.badge.plus")
+                    Image(systemName: "photo.badge.plus")
                 }
                 .buttonStyle(GlassButtonStyle())
                 .frame(height: elementHeight)
+                .help(state.t(.addPhoto))
 
                 Button {
                     state.presentBackgroundImagePicker()
                 } label: {
-                    Label("배경", systemImage: "photo.fill.on.rectangle.fill")
+                    Image(systemName: "photo.fill.on.rectangle.fill")
                 }
                 .buttonStyle(GlassButtonStyle())
                 .frame(height: elementHeight)
+                .help(state.t(.background))
 
                 if state.backgroundImageID != nil {
                     Button {
@@ -40,13 +42,13 @@ struct TopToolbar: View {
                     }
                     .buttonStyle(GlassButtonStyle())
                     .frame(height: elementHeight)
-                    .help("배경 이미지 제거")
+                    .help(state.t(.removeBgImage))
                 }
 
                 ColorPicker("", selection: $bindableState.backgroundColor, supportsOpacity: false)
                     .labelsHidden()
                     .frame(height: elementHeight)
-                    .help("배경 색상")
+                    .help(state.t(.bgColor))
 
                 Spacer(minLength: 8)
 
@@ -58,7 +60,7 @@ struct TopToolbar: View {
                 }
                 .buttonStyle(GlassButtonStyle(prominent: state.alwaysOnTop))
                 .frame(height: elementHeight)
-                .help(state.alwaysOnTop ? "모든 앱 위에 고정 됨 — 다시 누르면 해제" : "모든 앱 위에 고정")
+                .help(state.alwaysOnTop ? state.t(.pinOn) : state.t(.pinOff))
 
                 Button {
                     state.inspectorVisible.toggle()
@@ -69,16 +71,16 @@ struct TopToolbar: View {
                 }
                 .buttonStyle(GlassButtonStyle())
                 .frame(height: elementHeight)
-                .help(state.inspectorVisible ? "스타일 패널 닫기" : "스타일 패널 열기")
+                .help(state.inspectorVisible ? state.t(.closeStylePanel) : state.t(.openStylePanel))
 
                 Button {
                     state.chromeVisible = false
                 } label: {
-                    Label("집중", systemImage: "eye.slash")
+                    Image(systemName: "eye.slash")
                 }
                 .buttonStyle(GlassButtonStyle(prominent: true))
                 .frame(height: elementHeight)
-                .help("전체 UI 숨기기 (ESC로 토글)")
+                .help(state.t(.hideUI))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
@@ -101,12 +103,12 @@ private struct ModeSegment: View {
                     HStack(spacing: 6) {
                         Image(systemName: mode.symbol)
                             .font(.system(size: 12, weight: .semibold))
-                        Text(mode.rawValue)
+                        Text(mode.display(state.language))
                             .font(.system(size: 13, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: elementHeight - 4)
-                    .padding(.horizontal, 10)
+                    .padding(.horizontal, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
                             .fill(isOn ? AnyShapeStyle(Color.white.opacity(0.95)) : AnyShapeStyle(Color.white.opacity(0.001)))
@@ -117,7 +119,7 @@ private struct ModeSegment: View {
             }
         }
         .padding(2)
-        .frame(width: 200, height: elementHeight)
+        .frame(width: 150, height: elementHeight)
         .background(
             RoundedRectangle(cornerRadius: 11, style: .continuous)
                 .fill(.ultraThinMaterial)

@@ -16,6 +16,18 @@ enum CanvasMode: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+enum TimerStyle: String, CaseIterable, Identifiable, Codable {
+    case digital
+    case disk
+    var id: String { rawValue }
+    var symbol: String {
+        switch self {
+        case .digital: return "textformat.123"
+        case .disk:    return "circle.righthalf.filled"
+        }
+    }
+}
+
 enum ClockFormat: String, CaseIterable, Identifiable, Codable {
     case hm24 = "24h · HH:MM"
     case hms24 = "24h · HH:MM:SS"
@@ -148,6 +160,7 @@ enum SystemAlarm: String, CaseIterable, Identifiable {
 @Observable
 final class AppState {
     static let logicalCanvasSize = CGSize(width: 1280, height: 800)
+    static let timerDiskSide: CGFloat = 440
 
     var mode: CanvasMode = .clock
     var clockStyle = ClockStyle()
@@ -155,6 +168,10 @@ final class AppState {
     var timerDurationSeconds: Int = 5 * 60
     var timerRemaining: Int = 5 * 60
     var timerRunning: Bool = false
+    var timerStyle: TimerStyle = .digital
+    var timerDiskColor: Color = Color(.sRGB, red: 1.0, green: 0.231, blue: 0.188, opacity: 1)
+
+    var language: AppLanguage = .korean
 
     var items: [CanvasItem]
     var images: [UUID: NSImage] = [:]
@@ -196,8 +213,15 @@ final class AppState {
         items.firstIndex(where: { $0.id == id })
     }
 
+    func t(_ key: LKey) -> String { Localization.string(key, language) }
+
     func recomputeClockSize() {
         guard let id = clockItemID, let idx = index(of: id) else { return }
+        if mode == .timer && timerStyle == .disk {
+            let target = CGSize(width: Self.timerDiskSide, height: Self.timerDiskSide)
+            if items[idx].size != target { items[idx].size = target }
+            return
+        }
         let sample = ClockDisplayView.sampleLabel(for: self)
         let natural = TimeText.naturalSize(
             text: sample,
@@ -333,7 +357,7 @@ final class AppState {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
-        panel.title = "알람 사운드 추가"
+        panel.title = t(.addAlarmTitle)
         if panel.runModal() == .OK {
             for url in panel.urls {
                 let id = UUID()
@@ -375,7 +399,7 @@ final class AppState {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = true
         panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .heic, .webP]
-        panel.title = "사진 선택"
+        panel.title = t(.choosePhotoTitle)
         if panel.runModal() == .OK {
             for url in panel.urls {
                 if let img = NSImage(contentsOf: url) {
@@ -390,7 +414,7 @@ final class AppState {
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .heic, .webP]
-        panel.title = "배경 이미지 선택"
+        panel.title = t(.chooseBgTitle)
         if panel.runModal() == .OK, let url = panel.urls.first, let img = NSImage(contentsOf: url) {
             let id = UUID()
             images[id] = img
@@ -484,7 +508,10 @@ final class AppState {
             alarmChoice: alarmChoice,
             alarmVolume: alarmVolume,
             customAlarms: customAlarms,
-            alwaysOnTop: alwaysOnTop
+            alwaysOnTop: alwaysOnTop,
+            timerStyle: timerStyle,
+            timerDiskColor: PersistedColor(color: timerDiskColor),
+            language: language
         )
     }
 
@@ -517,6 +544,9 @@ final class AppState {
         alarmVolume = s.alarmVolume
         customAlarms = s.customAlarms
         alwaysOnTop = s.alwaysOnTop
+        timerStyle = s.timerStyle
+        timerDiskColor = s.timerDiskColor.color
+        language = s.language
 
         items = s.items.map { $0.toCanvasItem() }
         selectedID = nil

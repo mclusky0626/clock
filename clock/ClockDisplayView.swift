@@ -4,6 +4,14 @@ struct ClockDisplayView: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
+        if state.mode == .timer && state.timerStyle == .disk {
+            TimerDiskView()
+        } else {
+            digitalDisplay
+        }
+    }
+
+    private var digitalDisplay: some View {
         TimelineView(.periodic(from: .now, by: 0.5)) { context in
             let label: String = {
                 switch state.mode {

@@ -196,10 +196,14 @@ struct PersistedState: Codable {
     var alarmVolume: Float
     var customAlarms: [CustomAlarm]
     var alwaysOnTop: Bool = false
+    var timerStyle: TimerStyle = .digital
+    var timerDiskColor: PersistedColor = PersistedColor(red: 1.0, green: 0.231, blue: 0.188, alpha: 1)
+    var language: AppLanguage = .korean
 
     enum CodingKeys: CodingKey {
         case mode, clockStyle, items, backgroundColor, backgroundImageID
         case timerDuration, alarmChoice, alarmVolume, customAlarms, alwaysOnTop
+        case timerStyle, timerDiskColor, language
     }
 
     init(
@@ -212,13 +216,18 @@ struct PersistedState: Codable {
         alarmChoice: AlarmChoice,
         alarmVolume: Float,
         customAlarms: [CustomAlarm],
-        alwaysOnTop: Bool
+        alwaysOnTop: Bool,
+        timerStyle: TimerStyle,
+        timerDiskColor: PersistedColor,
+        language: AppLanguage
     ) {
         self.mode = mode; self.clockStyle = clockStyle; self.items = items
         self.backgroundColor = backgroundColor; self.backgroundImageID = backgroundImageID
         self.timerDuration = timerDuration; self.alarmChoice = alarmChoice
         self.alarmVolume = alarmVolume; self.customAlarms = customAlarms
         self.alwaysOnTop = alwaysOnTop
+        self.timerStyle = timerStyle; self.timerDiskColor = timerDiskColor
+        self.language = language
     }
 
     init(from decoder: Decoder) throws {
@@ -233,5 +242,9 @@ struct PersistedState: Codable {
         alarmVolume = try c.decode(Float.self, forKey: .alarmVolume)
         customAlarms = try c.decode([CustomAlarm].self, forKey: .customAlarms)
         alwaysOnTop = (try? c.decode(Bool.self, forKey: .alwaysOnTop)) ?? false
+        timerStyle = (try? c.decode(TimerStyle.self, forKey: .timerStyle)) ?? .digital
+        timerDiskColor = (try? c.decode(PersistedColor.self, forKey: .timerDiskColor))
+            ?? PersistedColor(red: 1.0, green: 0.231, blue: 0.188, alpha: 1)
+        language = (try? c.decode(AppLanguage.self, forKey: .language)) ?? .korean
     }
 }
