@@ -16,14 +16,52 @@ struct TopToolbar: View {
 
                 Divider().frame(height: 18).opacity(0.4)
 
-                Button {
-                    state.presentPhotoPicker()
+                Menu {
+                    Button {
+                        state.presentPhotoPicker()
+                    } label: {
+                        Label(state.t(.photo), systemImage: "photo")
+                    }
+                    Menu {
+                        Button {
+                            state.addWeather(.auto)
+                        } label: {
+                            Label(WeatherKind.auto.displayName(state.language), systemImage: WeatherKind.auto.sfSymbol)
+                        }
+                        Divider()
+                        ForEach(WeatherKind.manualCases) { k in
+                            Button {
+                                state.addWeather(k)
+                            } label: {
+                                Label(k.displayName(state.language), systemImage: k.sfSymbol)
+                            }
+                        }
+                    } label: {
+                        Label(state.t(.weather), systemImage: "cloud.sun.fill")
+                    }
+                    Menu {
+                        ForEach(WidgetKind.allCases) { w in
+                            Button {
+                                state.addWidget(w)
+                            } label: {
+                                Label(w.displayName(state.language), systemImage: w.sfSymbol)
+                            }
+                        }
+                    } label: {
+                        Label(state.t(.widget), systemImage: "rectangle.on.rectangle.angled")
+                    }
                 } label: {
-                    Image(systemName: "photo.badge.plus")
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color.primary)
+                        .frame(height: elementHeight)
+                        .padding(.horizontal, 12)
+                        .glassControlChip(cornerRadius: 10)
                 }
-                .buttonStyle(GlassButtonStyle())
-                .frame(height: elementHeight)
-                .help(state.t(.addPhoto))
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(state.t(.add))
 
                 Button {
                     state.presentBackgroundImagePicker()
@@ -120,14 +158,7 @@ private struct ModeSegment: View {
         }
         .padding(2)
         .frame(width: 150, height: elementHeight)
-        .background(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.18), lineWidth: 0.6)
-                )
-        )
+        .glassControlChip(cornerRadius: 11)
         .animation(.spring(response: 0.25, dampingFraction: 0.75), value: state.mode)
     }
 }

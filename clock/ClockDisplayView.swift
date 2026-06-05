@@ -19,18 +19,29 @@ struct ClockDisplayView: View {
                 case .timer: return Self.formatTimer(seconds: state.timerRemaining)
                 }
             }()
-            TimeText(
-                text: label,
-                family: state.clockStyle.family,
-                weight: state.clockStyle.weight,
-                fontSize: state.clockStyle.fontSize,
-                color: state.clockStyle.color,
-                extraTracking: state.clockStyle.tracking,
-                stretchY: state.clockStyle.stretchY,
-                separator: state.clockStyle.separator,
-                material: state.clockStyle.material,
-                animation: state.clockStyle.transition
-            )
+            if state.clockStyle.numeralStyle == .segment {
+                SegmentTimeView(
+                    text: label,
+                    color: state.clockStyle.color,
+                    fontSize: state.clockStyle.fontSize,
+                    stretchY: state.clockStyle.stretchY,
+                    tracking: state.clockStyle.tracking,
+                    separator: state.clockStyle.separator
+                )
+            } else {
+                TimeText(
+                    text: label,
+                    family: state.clockStyle.family,
+                    weight: state.clockStyle.weight,
+                    fontSize: state.clockStyle.fontSize,
+                    color: state.clockStyle.color,
+                    extraTracking: state.clockStyle.tracking,
+                    stretchY: state.clockStyle.stretchY,
+                    separator: state.clockStyle.separator,
+                    material: state.clockStyle.material,
+                    animation: state.clockStyle.transition
+                )
+            }
         }
     }
 

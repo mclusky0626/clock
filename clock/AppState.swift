@@ -28,6 +28,21 @@ enum TimerStyle: String, CaseIterable, Identifiable, Codable {
     }
 }
 
+enum BackgroundMode: String, CaseIterable, Identifiable, Codable {
+    case color          // 단색/그라데이션 (또는 시간별 테마)
+    case transparent    // 완전 투명 — 바탕화면 그대로 비침
+    case translucent    // 반투명 — 바탕화면이 흐릿하게 비침
+    case glassOutline   // 투명 + 리퀴드 글래스 윤곽선
+    var id: String { rawValue }
+    /// 윈도우 자체를 투명하게 만들어야 하는 모드인지
+    var needsTransparentWindow: Bool {
+        switch self {
+        case .color: return false
+        case .transparent, .translucent, .glassOutline: return true
+        }
+    }
+}
+
 enum ClockFormat: String, CaseIterable, Identifiable, Codable {
     case hm24 = "24h · HH:MM"
     case hms24 = "24h · HH:MM:SS"
@@ -69,6 +84,7 @@ enum DigitMaterial: String, CaseIterable, Identifiable, Codable {
     case solid = "단색"
     case gradient = "그라데이션"
     case glass = "글래스 (배경 비침)"
+    case liquidGlass = "리퀴드 글래스"
     case overlay = "오버레이 (배경과 어우러짐)"
     var id: String { rawValue }
 }
@@ -86,6 +102,12 @@ enum DigitAnimation: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
+enum NumeralStyle: String, CaseIterable, Identifiable, Codable {
+    case font       // 일반 폰트 글리프
+    case segment    // 7-세그먼트 (세로 늘려도 비율 안 깨짐)
+    var id: String { rawValue }
+}
+
 struct ClockStyle: Equatable {
     var family: ClockFontFamily = .sfPro
     var weight: ClockWeight = .ultraLight
@@ -97,6 +119,7 @@ struct ClockStyle: Equatable {
     var separator: SeparatorStyle = .colon
     var material: DigitMaterial = .solid
     var transition: DigitAnimation = .roll
+    var numeralStyle: NumeralStyle = .font
 }
 
 struct Transform: Equatable {
@@ -108,9 +131,58 @@ struct Transform: Equatable {
     var zIndex: Double = 0
 }
 
+enum WeatherKind: String, CaseIterable, Identifiable, Codable {
+    case sunny, partlyCloudy, cloudy, windy, rainy, sunshower, snowy, rainbow
+    case auto   // 현재 위치 날씨를 API로 자동 반영
+
+    var id: String { rawValue }
+
+    /// 메뉴에 직접 노출하는 수동 항목 (auto 제외)
+    static let manualCases: [WeatherKind] = [
+        .sunny, .partlyCloudy, .cloudy, .windy, .rainy, .sunshower, .snowy, .rainbow
+    ]
+
+    var sfSymbol: String {
+        switch self {
+        case .sunny:        return "sun.max.fill"
+        case .partlyCloudy: return "cloud.sun.fill"
+        case .cloudy:       return "cloud.fill"
+        case .windy:        return "wind"
+        case .rainy:        return "cloud.rain.fill"
+        case .sunshower:    return "cloud.sun.rain.fill"
+        case .snowy:        return "cloud.snow.fill"
+        case .rainbow:      return "rainbow"
+        case .auto:         return "location.fill"
+        }
+    }
+}
+
+/// Floating "glass widgets" that live on the canvas (date, etc.). Each renders
+/// inside a native Liquid Glass card and is draggable / resizable like any item.
+enum WidgetKind: String, CaseIterable, Identifiable, Codable {
+    case dateDay   // 날짜 · 요일
+
+    var id: String { rawValue }
+
+    var sfSymbol: String {
+        switch self {
+        case .dateDay: return "calendar"
+        }
+    }
+
+    /// Natural (unscaled) size used when first added to the canvas.
+    var defaultSize: CGSize {
+        switch self {
+        case .dateDay: return CGSize(width: 300, height: 176)
+        }
+    }
+}
+
 enum ItemKind: Equatable {
     case clock
     case photo(imageID: UUID)
+    case weather(WeatherKind)
+    case widget(WidgetKind)
 }
 
 struct CanvasItem: Identifiable, Equatable {
@@ -179,6 +251,9 @@ final class AppState {
 
     var backgroundColor: Color = .black
     var backgroundImageID: UUID?
+    var backgroundMode: BackgroundMode = .color
+    var autoTheme: Bool = false
+    var backgroundOpacity: Double = 0.65   // 반투명 모드 프로스트 농도 (0 = 완전 투명, 1 = 진한 프로스트)
 
     var inspectorVisible: Bool = true
     var chromeVisible: Bool = true
@@ -223,13 +298,21 @@ final class AppState {
             return
         }
         let sample = ClockDisplayView.sampleLabel(for: self)
-        let natural = TimeText.naturalSize(
-            text: sample,
-            fontSize: clockStyle.fontSize,
-            extraTracking: clockStyle.tracking,
-            stretchY: clockStyle.stretchY,
-            separator: clockStyle.separator
-        )
+        let natural: CGSize = clockStyle.numeralStyle == .segment
+            ? SegmentTimeView.naturalSize(
+                text: sample,
+                fontSize: clockStyle.fontSize,
+                stretchY: clockStyle.stretchY,
+                separator: clockStyle.separator,
+                tracking: clockStyle.tracking
+              )
+            : TimeText.naturalSize(
+                text: sample,
+                fontSize: clockStyle.fontSize,
+                extraTracking: clockStyle.tracking,
+                stretchY: clockStyle.stretchY,
+                separator: clockStyle.separator
+              )
         if items[idx].size != natural {
             items[idx].size = natural
         }
@@ -255,6 +338,34 @@ final class AppState {
             size: size,
             cornerRadius: 18,
             shadowRadius: 24
+        )
+        items.append(item)
+        selectedID = item.id
+        scheduleSave()
+    }
+
+    func addWeather(_ kind: WeatherKind) {
+        let item = CanvasItem(
+            kind: .weather(kind),
+            transform: Transform(
+                position: .init(x: 480, y: 360),
+                zIndex: nextZIndex()
+            ),
+            size: .init(width: 240, height: 240)
+        )
+        items.append(item)
+        selectedID = item.id
+        scheduleSave()
+    }
+
+    func addWidget(_ kind: WidgetKind) {
+        let item = CanvasItem(
+            kind: .widget(kind),
+            transform: Transform(
+                position: .init(x: 480, y: 360),
+                zIndex: nextZIndex()
+            ),
+            size: kind.defaultSize
         )
         items.append(item)
         selectedID = item.id
@@ -424,6 +535,7 @@ final class AppState {
                 deleteImageFile(id: old)
             }
             backgroundImageID = id
+            backgroundMode = .color
             scheduleSave()
         }
     }
@@ -499,7 +611,8 @@ final class AppState {
                 color: PersistedColor(color: clockStyle.color),
                 separator: clockStyle.separator,
                 material: clockStyle.material,
-                animation: clockStyle.transition
+                animation: clockStyle.transition,
+                numeralStyle: clockStyle.numeralStyle
             ),
             items: items.map(PersistedItem.from),
             backgroundColor: PersistedColor(color: backgroundColor),
@@ -511,7 +624,10 @@ final class AppState {
             alwaysOnTop: alwaysOnTop,
             timerStyle: timerStyle,
             timerDiskColor: PersistedColor(color: timerDiskColor),
-            language: language
+            language: language,
+            backgroundMode: backgroundMode,
+            autoTheme: autoTheme,
+            backgroundOpacity: backgroundOpacity
         )
     }
 
@@ -534,7 +650,8 @@ final class AppState {
             color: s.clockStyle.color.color,
             separator: s.clockStyle.separator,
             material: s.clockStyle.material,
-            transition: s.clockStyle.animation
+            transition: s.clockStyle.animation,
+            numeralStyle: s.clockStyle.numeralStyle
         )
         backgroundColor = s.backgroundColor.color
         backgroundImageID = s.backgroundImageID
@@ -547,6 +664,9 @@ final class AppState {
         timerStyle = s.timerStyle
         timerDiskColor = s.timerDiskColor.color
         language = s.language
+        backgroundMode = s.backgroundMode
+        autoTheme = s.autoTheme
+        backgroundOpacity = s.backgroundOpacity
 
         items = s.items.map { $0.toCanvasItem() }
         selectedID = nil

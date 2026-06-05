@@ -40,11 +40,12 @@ struct ContentView: View {
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.chromeVisible)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.inspectorVisible)
-        .frame(minWidth: 500, minHeight: 360)
+        .frame(minWidth: 300, minHeight: 200)
         .preferredColorScheme(.dark)
         .background(
             WindowAccessor { window in
                 WindowPinning.apply(state.alwaysOnTop, to: window)
+                WindowAppearance.apply(transparent: state.backgroundMode.needsTransparentWindow, to: window)
             }
         )
         .focusable()
@@ -71,6 +72,9 @@ struct ContentView: View {
         .onChange(of: state.timerDiskColor) { _, _ in state.scheduleSave() }
         .onChange(of: state.language) { _, _ in state.scheduleSave() }
         .onChange(of: state.backgroundColor) { _, _ in state.scheduleSave() }
+        .onChange(of: state.backgroundMode) { _, _ in state.scheduleSave() }
+        .onChange(of: state.autoTheme) { _, _ in state.scheduleSave() }
+        .onChange(of: state.backgroundOpacity) { _, _ in state.scheduleSave() }
         .onChange(of: state.timerDurationSeconds) { _, _ in state.scheduleSave() }
         .onChange(of: state.alarmVolume) { _, _ in state.scheduleSave() }
         .onChange(of: state.alarmChoice) { _, _ in state.scheduleSave() }
@@ -91,12 +95,7 @@ struct ContentView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(
-                            Capsule()
-                                .fill(.ultraThinMaterial)
-                                .overlay(Capsule().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.6))
-                                .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
-                        )
+                        .glassEffect(.regular.interactive(), in: Capsule())
                         .opacity(restorePillHover ? 1.0 : 0.35)
                 }
                 .buttonStyle(.plain)

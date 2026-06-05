@@ -19,6 +19,43 @@ struct WindowAccessor: NSViewRepresentable {
     }
 }
 
+/// A behind-window blur so the desktop/apps behind the (transparent) window show
+/// through frosted — the real macOS translucency that SwiftUI materials don't give.
+struct VisualEffectBackground: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .hudWindow
+    var blending: NSVisualEffectView.BlendingMode = .behindWindow
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let v = NSVisualEffectView()
+        v.material = material
+        v.blendingMode = blending
+        v.state = .active
+        v.isEmphasized = false
+        return v
+    }
+
+    func updateNSView(_ v: NSVisualEffectView, context: Context) {
+        v.material = material
+        v.blendingMode = blending
+    }
+}
+
+enum WindowAppearance {
+    /// Makes the window itself transparent so the desktop/apps behind show through.
+    static func apply(transparent: Bool, to window: NSWindow?) {
+        guard let window else { return }
+        if transparent {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.hasShadow = false
+        } else {
+            window.isOpaque = true
+            window.backgroundColor = .windowBackgroundColor
+            window.hasShadow = true
+        }
+    }
+}
+
 enum WindowPinning {
     static func apply(_ pinned: Bool, to window: NSWindow?) {
         guard let window else { return }

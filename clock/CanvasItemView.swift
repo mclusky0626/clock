@@ -84,6 +84,14 @@ struct CanvasItemView: View {
             } else {
                 Color.gray.opacity(0.2)
             }
+        case .weather(let kind):
+            WeatherStickerView(kind: kind)
+                .frame(width: item.size.width, height: item.size.height)
+                .contentShape(Rectangle())
+        case .widget(let kind):
+            WidgetView(kind: kind)
+                .frame(width: item.size.width, height: item.size.height)
+                .contentShape(Rectangle())
         }
     }
 

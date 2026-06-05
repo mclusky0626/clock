@@ -35,6 +35,7 @@ struct PersistedClockStyle: Codable, Equatable {
     var separator: SeparatorStyle
     var material: DigitMaterial
     var animation: DigitAnimation
+    var numeralStyle: NumeralStyle
 
     init(
         family: ClockFontFamily,
@@ -46,12 +47,14 @@ struct PersistedClockStyle: Codable, Equatable {
         color: PersistedColor,
         separator: SeparatorStyle,
         material: DigitMaterial,
-        animation: DigitAnimation
+        animation: DigitAnimation,
+        numeralStyle: NumeralStyle
     ) {
         self.family = family; self.weight = weight; self.fontSize = fontSize
         self.tracking = tracking; self.stretchY = stretchY; self.format = format
         self.color = color; self.separator = separator
         self.material = material; self.animation = animation
+        self.numeralStyle = numeralStyle
     }
 
     init(from decoder: Decoder) throws {
@@ -66,6 +69,7 @@ struct PersistedClockStyle: Codable, Equatable {
         separator = try c.decode(SeparatorStyle.self, forKey: .separator)
         material = (try? c.decode(DigitMaterial.self, forKey: .material)) ?? .solid
         animation = (try? c.decode(DigitAnimation.self, forKey: .animation)) ?? .roll
+        numeralStyle = (try? c.decode(NumeralStyle.self, forKey: .numeralStyle)) ?? .font
     }
 }
 
@@ -117,12 +121,16 @@ struct PersistedTransform: Codable, Equatable {
 enum PersistedItemKind: String, Codable {
     case clock
     case photo
+    case weather
+    case widget
 }
 
 struct PersistedItem: Codable, Equatable {
     var id: UUID
     var kind: PersistedItemKind
     var imageID: UUID?
+    var weatherKind: WeatherKind?
+    var widgetKind: WidgetKind?
     var transform: PersistedTransform
     var width: CGFloat
     var height: CGFloat
@@ -134,16 +142,28 @@ struct PersistedItem: Codable, Equatable {
             if case let .photo(id) = item.kind { return id }
             return nil
         }()
+        let wKind: WeatherKind? = {
+            if case let .weather(k) = item.kind { return k }
+            return nil
+        }()
+        let wgKind: WidgetKind? = {
+            if case let .widget(k) = item.kind { return k }
+            return nil
+        }()
         let kind: PersistedItemKind = {
             switch item.kind {
-            case .clock: return .clock
-            case .photo: return .photo
+            case .clock:   return .clock
+            case .photo:   return .photo
+            case .weather: return .weather
+            case .widget:  return .widget
             }
         }()
         return PersistedItem(
             id: item.id,
             kind: kind,
             imageID: imgID,
+            weatherKind: wKind,
+            widgetKind: wgKind,
             transform: PersistedTransform(
                 x: item.transform.position.x,
                 y: item.transform.position.y,
@@ -163,8 +183,10 @@ struct PersistedItem: Codable, Equatable {
     func toCanvasItem() -> CanvasItem {
         let itemKind: ItemKind = {
             switch kind {
-            case .clock: return .clock
-            case .photo: return .photo(imageID: imageID ?? UUID())
+            case .clock:   return .clock
+            case .photo:   return .photo(imageID: imageID ?? UUID())
+            case .weather: return .weather(weatherKind ?? .sunny)
+            case .widget:  return .widget(widgetKind ?? .dateDay)
             }
         }()
         return CanvasItem(
@@ -199,11 +221,15 @@ struct PersistedState: Codable {
     var timerStyle: TimerStyle = .digital
     var timerDiskColor: PersistedColor = PersistedColor(red: 1.0, green: 0.231, blue: 0.188, alpha: 1)
     var language: AppLanguage = .korean
+    var backgroundMode: BackgroundMode = .color
+    var autoTheme: Bool = false
+    var backgroundOpacity: Double = 0.65
 
     enum CodingKeys: CodingKey {
         case mode, clockStyle, items, backgroundColor, backgroundImageID
         case timerDuration, alarmChoice, alarmVolume, customAlarms, alwaysOnTop
         case timerStyle, timerDiskColor, language
+        case backgroundMode, autoTheme, backgroundOpacity
     }
 
     init(
@@ -219,7 +245,10 @@ struct PersistedState: Codable {
         alwaysOnTop: Bool,
         timerStyle: TimerStyle,
         timerDiskColor: PersistedColor,
-        language: AppLanguage
+        language: AppLanguage,
+        backgroundMode: BackgroundMode,
+        autoTheme: Bool,
+        backgroundOpacity: Double
     ) {
         self.mode = mode; self.clockStyle = clockStyle; self.items = items
         self.backgroundColor = backgroundColor; self.backgroundImageID = backgroundImageID
@@ -228,6 +257,8 @@ struct PersistedState: Codable {
         self.alwaysOnTop = alwaysOnTop
         self.timerStyle = timerStyle; self.timerDiskColor = timerDiskColor
         self.language = language
+        self.backgroundMode = backgroundMode; self.autoTheme = autoTheme
+        self.backgroundOpacity = backgroundOpacity
     }
 
     init(from decoder: Decoder) throws {
@@ -246,5 +277,8 @@ struct PersistedState: Codable {
         timerDiskColor = (try? c.decode(PersistedColor.self, forKey: .timerDiskColor))
             ?? PersistedColor(red: 1.0, green: 0.231, blue: 0.188, alpha: 1)
         language = (try? c.decode(AppLanguage.self, forKey: .language)) ?? .korean
+        backgroundMode = (try? c.decode(BackgroundMode.self, forKey: .backgroundMode)) ?? .color
+        autoTheme = (try? c.decode(Bool.self, forKey: .autoTheme)) ?? false
+        backgroundOpacity = (try? c.decode(Double.self, forKey: .backgroundOpacity)) ?? 0.65
     }
 }

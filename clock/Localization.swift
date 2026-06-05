@@ -27,6 +27,7 @@ enum LKey {
     // Clock style
     case clockStyle, format, font, weight, separator, material, transition
     case size, stretchY, tracking, color
+    case numeralStyle, numeralSegment
 
     // Transform
     case arrange, width, height, rotation, opacity
@@ -39,6 +40,12 @@ enum LKey {
 
     // Hints
     case selectHint
+
+    // Background modes / theme
+    case bgMode, transparent, translucent, glassOutline, autoTheme
+
+    // Add menu / weather / widgets
+    case add, weather, sticker, widget
 
     // Toolbar
     case addPhoto, background, removeBgImage, bgColor
@@ -75,6 +82,9 @@ enum LKey {
         case .addMP3:           return ("MP3 추가", "Add MP3")
         case .deleteCustomSound:return ("선택된 사용자 사운드 삭제", "Delete selected sound")
 
+        case .numeralStyle:     return ("숫자 모양", "Numerals")
+        case .numeralSegment:   return ("세그먼트", "Segment")
+
         case .clockStyle:       return ("시계 스타일", "Clock Style")
         case .format:           return ("형식", "Format")
         case .font:             return ("폰트", "Font")
@@ -107,6 +117,17 @@ enum LKey {
         case .selectHint:
             return ("캔버스의 사진이나 시계를 선택하면\n속성을 편집할 수 있습니다.",
                     "Select a photo or clock on the\ncanvas to edit its properties.")
+
+        case .bgMode:           return ("배경 모드", "Background")
+        case .transparent:      return ("투명", "Transparent")
+        case .translucent:      return ("반투명", "Translucent")
+        case .glassOutline:     return ("글래스 윤곽선", "Glass Outline")
+        case .autoTheme:        return ("시간별 자동 테마", "Time-based Theme")
+
+        case .add:              return ("추가", "Add")
+        case .weather:          return ("날씨", "Weather")
+        case .sticker:          return ("스티커", "Sticker")
+        case .widget:           return ("위젯", "Widget")
 
         case .addPhoto:         return ("사진 추가", "Add Photo")
         case .background:       return ("배경", "Background")
@@ -150,10 +171,11 @@ extension DigitMaterial {
     func display(_ lang: AppLanguage) -> String {
         let ko = lang == .korean
         switch self {
-        case .solid:    return ko ? "단색" : "Solid"
-        case .gradient: return ko ? "그라데이션" : "Gradient"
-        case .glass:    return ko ? "글래스 (배경 비침)" : "Glass (see-through)"
-        case .overlay:  return ko ? "오버레이 (배경과 어우러짐)" : "Overlay (blend)"
+        case .solid:       return ko ? "단색" : "Solid"
+        case .gradient:    return ko ? "그라데이션" : "Gradient"
+        case .glass:       return ko ? "글래스 (배경 비침)" : "Glass (see-through)"
+        case .liquidGlass: return ko ? "리퀴드 글래스" : "Liquid Glass"
+        case .overlay:     return ko ? "오버레이 (배경과 어우러짐)" : "Overlay (blend)"
         }
     }
 }
@@ -171,6 +193,51 @@ extension DigitAnimation {
         case .flip:      return ko ? "플립 (3D)" : "Flip (3D)"
         case .depth:     return ko ? "뎁스" : "Depth"
         case .blur:      return ko ? "블러" : "Blur"
+        }
+    }
+}
+
+extension WeatherKind {
+    func displayName(_ lang: AppLanguage) -> String {
+        let ko = lang == .korean
+        switch self {
+        case .sunny:        return ko ? "맑음" : "Sunny"
+        case .partlyCloudy: return ko ? "구름 조금" : "Partly Cloudy"
+        case .cloudy:       return ko ? "흐림" : "Cloudy"
+        case .windy:        return ko ? "바람" : "Windy"
+        case .rainy:        return ko ? "비" : "Rainy"
+        case .sunshower:    return ko ? "여우비" : "Sun Shower"
+        case .snowy:        return ko ? "눈" : "Snowy"
+        case .rainbow:      return ko ? "무지개" : "Rainbow"
+        case .auto:         return ko ? "자동 (현재 위치)" : "Auto (Current)"
+        }
+    }
+}
+
+extension WidgetKind {
+    func displayName(_ lang: AppLanguage) -> String {
+        let ko = lang == .korean
+        switch self {
+        case .dateDay: return ko ? "날짜 · 요일" : "Date · Day"
+        }
+    }
+}
+
+extension BackgroundMode {
+    func display(_ lang: AppLanguage) -> String {
+        switch self {
+        case .color:        return Localization.string(.color, lang)
+        case .transparent:  return Localization.string(.transparent, lang)
+        case .translucent:  return Localization.string(.translucent, lang)
+        case .glassOutline: return Localization.string(.glassOutline, lang)
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .color:        return "paintpalette"
+        case .transparent:  return "square.dashed"
+        case .translucent:  return "square.fill.on.square.fill"
+        case .glassOutline: return "square.on.square.dashed"
         }
     }
 }

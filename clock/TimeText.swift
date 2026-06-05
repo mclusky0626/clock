@@ -185,12 +185,40 @@ struct MaterialModifier: ViewModifier {
             content
                 .foregroundStyle(.ultraThinMaterial)
                 .shadow(color: .black.opacity(0.18), radius: fontSize * 0.04, x: 0, y: fontSize * 0.02)
+        case .liquidGlass:
+            liquidGlassView(content)
         case .overlay:
             content
                 .foregroundStyle(color)
                 .blendMode(.overlay)
                 .compositingGroup()
         }
+    }
+
+    /// Liquid Glass digits with enough definition to stay visible on light/white
+    /// backgrounds: a glass plate (border + drop shadow) behind crisp white glyphs
+    /// that carry their own soft dark edge.
+    private func liquidGlassView(_ content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: fontSize * 0.18, style: .continuous)
+        return content
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [.white, .white.opacity(0.82)],
+                    startPoint: .top, endPoint: .bottom
+                )
+            )
+            .shadow(color: .black.opacity(0.38), radius: fontSize * 0.016, x: 0, y: fontSize * 0.012)
+            .background {
+                Group {
+                    if #available(macOS 26.0, *) {
+                        Color.clear.glassEffect(.regular, in: shape)
+                    } else {
+                        shape.fill(.ultraThinMaterial)
+                    }
+                }
+                .overlay(shape.strokeBorder(Color.white.opacity(0.5), lineWidth: 1))
+                .shadow(color: .black.opacity(0.32), radius: fontSize * 0.06, x: 0, y: fontSize * 0.028)
+            }
     }
 }
 

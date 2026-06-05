@@ -18,6 +18,11 @@ struct CanvasView: View {
             .scaleEffect(scale)
             .frame(width: geo.size.width, height: geo.size.height)
             .background(backgroundLayer.ignoresSafeArea())
+            .overlay {
+                if state.backgroundMode == .glassOutline {
+                    glassOutline.ignoresSafeArea()
+                }
+            }
             .contentShape(Rectangle())
             .onTapGesture {
                 state.selectedID = nil
@@ -48,19 +53,54 @@ struct CanvasView: View {
 
     @ViewBuilder
     private var backgroundLayer: some View {
-        if let bgID = state.backgroundImageID, let img = state.images[bgID] {
-            Image(nsImage: img)
-                .resizable()
-                .scaledToFill()
-        } else {
-            LinearGradient(
-                colors: [
-                    state.backgroundColor,
-                    state.backgroundColor.opacity(0.85)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+        switch state.backgroundMode {
+        case .color:
+            if let bgID = state.backgroundImageID, let img = state.images[bgID] {
+                Image(nsImage: img)
+                    .resizable()
+                    .scaledToFill()
+            } else if state.autoTheme {
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    let c = TimeTheme.colors(for: context.date)
+                    LinearGradient(colors: [c.top, c.bottom], startPoint: .top, endPoint: .bottom)
+                }
+            } else {
+                LinearGradient(
+                    colors: [
+                        state.backgroundColor,
+                        state.backgroundColor.opacity(0.85)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+        case .transparent:
+            Color.clear
+        case .translucent:
+            VisualEffectBackground(material: .hudWindow, blending: .behindWindow)
+                .opacity(state.backgroundOpacity)
+        case .glassOutline:
+            Color.clear
         }
+    }
+
+    /// A liquid-glass border framing the window for the transparent "glass outline" mode.
+    private var glassOutline: some View {
+        RoundedRectangle(cornerRadius: 26, style: .continuous)
+            .strokeBorder(
+                LinearGradient(
+                    colors: [
+                        Color.white.opacity(0.75),
+                        Color.white.opacity(0.18),
+                        Color.white.opacity(0.45)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 1.5
+            )
+            .shadow(color: .white.opacity(0.25), radius: 6)
+            .padding(7)
+            .allowsHitTesting(false)
     }
 }

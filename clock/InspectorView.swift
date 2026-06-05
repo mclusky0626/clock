@@ -23,6 +23,14 @@ struct InspectorView: View {
                             photoSection(itemID: id)
                             layerSection(id: id)
                             deleteSection
+                        case .weather:
+                            transformSection(itemID: id)
+                            layerSection(id: id)
+                            deleteSection
+                        case .widget:
+                            transformSection(itemID: id)
+                            layerSection(id: id)
+                            deleteSection
                         }
                     } else {
                         clockSection
@@ -31,6 +39,7 @@ struct InspectorView: View {
                             .foregroundStyle(.secondary)
                             .padding(.top, 4)
                     }
+                    backgroundSection
                     languageSection
                 }
                 .padding(18)
@@ -45,8 +54,10 @@ struct InspectorView: View {
                 return state.t(.style)
             }
             switch state.items[idx].kind {
-            case .clock: return state.t(.clock)
-            case .photo: return state.t(.photo)
+            case .clock:   return state.t(.clock)
+            case .photo:   return state.t(.photo)
+            case .weather: return state.t(.sticker)
+            case .widget:  return state.t(.widget)
             }
         }()
         return HStack {
@@ -218,6 +229,14 @@ struct InspectorView: View {
         @Bindable var s = s
         let lang = s.language
         Group {
+            row(state.t(.numeralStyle)) {
+                Picker("", selection: $s.clockStyle.numeralStyle) {
+                    Text(state.t(.font)).tag(NumeralStyle.font)
+                    Text(state.t(.numeralSegment)).tag(NumeralStyle.segment)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
             row(state.t(.format)) {
                 Picker("", selection: $s.clockStyle.format) {
                     ForEach(ClockFormat.allCases) { f in Text(f.rawValue).tag(f) }
@@ -390,6 +409,48 @@ struct InspectorView: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(GlassButtonStyle())
+    }
+
+    // MARK: Background
+
+    private var backgroundSection: some View {
+        @Bindable var s = state
+        return VStack(alignment: .leading, spacing: 10) {
+            sectionLabel(state.t(.bgMode))
+            Picker("", selection: $s.backgroundMode) {
+                ForEach(BackgroundMode.allCases) { m in
+                    Label(m.display(state.language), systemImage: m.symbol).tag(m)
+                }
+            }
+            .labelsHidden()
+
+            if state.backgroundMode == .color {
+                Toggle(isOn: $s.autoTheme) {
+                    Text(state.t(.autoTheme)).font(.system(size: 13))
+                }
+                .toggleStyle(.switch)
+                .tint(.blue)
+
+                if !state.autoTheme {
+                    row(state.t(.color)) {
+                        ColorPicker("", selection: $s.backgroundColor, supportsOpacity: false)
+                            .labelsHidden()
+                            .frame(width: 40)
+                    }
+                }
+            }
+
+            if state.backgroundMode == .translucent {
+                slider(
+                    label: state.t(.opacity),
+                    value: $s.backgroundOpacity,
+                    range: 0...1,
+                    step: 0.01,
+                    display: { String(format: "%.0f%%", $0 * 100) }
+                )
+            }
+            divider
+        }
     }
 
     // MARK: Language
