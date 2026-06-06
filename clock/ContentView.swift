@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @State private var state = AppState()
@@ -6,7 +7,8 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        ZStack {
+        @Bindable var s = state
+        return ZStack {
             CanvasView()
                 .environment(state)
 
@@ -42,12 +44,22 @@ struct ContentView: View {
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: state.inspectorVisible)
         .frame(minWidth: 300, minHeight: 200)
         .preferredColorScheme(.dark)
-        .background(
-            WindowAccessor { window in
-                WindowPinning.apply(state.alwaysOnTop, to: window)
-                WindowAppearance.apply(transparent: state.backgroundMode.needsTransparentWindow, to: window)
-            }
-        )
+        .windowConfigurator(state)
+        .fileImporter(
+            isPresented: $s.photoImporterShown,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: true
+        ) { state.handlePhotoImport($0) }
+        .fileImporter(
+            isPresented: $s.backgroundImporterShown,
+            allowedContentTypes: [.image],
+            allowsMultipleSelection: false
+        ) { state.handleBackgroundImport($0) }
+        .fileImporter(
+            isPresented: $s.alarmImporterShown,
+            allowedContentTypes: [.audio],
+            allowsMultipleSelection: true
+        ) { state.handleAlarmImport($0) }
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {

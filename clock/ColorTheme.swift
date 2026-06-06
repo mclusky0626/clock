@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 extension Color {
     init(hex: UInt) {
@@ -10,14 +9,14 @@ extension Color {
     }
 
     static func lerp(_ a: Color, _ b: Color, _ t: Double) -> Color {
-        let na = NSColor(a).usingColorSpace(.sRGB) ?? .black
-        let nb = NSColor(b).usingColorSpace(.sRGB) ?? .black
+        let na = a.platformRGBA
+        let nb = b.platformRGBA
         let tt = max(0, min(t, 1))
-        func mix(_ x: CGFloat, _ y: CGFloat) -> Double { Double(x) + (Double(y) - Double(x)) * tt }
+        func mix(_ x: Double, _ y: Double) -> Double { x + (y - x) * tt }
         return Color(.sRGB,
-                     red:   mix(na.redComponent, nb.redComponent),
-                     green: mix(na.greenComponent, nb.greenComponent),
-                     blue:  mix(na.blueComponent, nb.blueComponent),
+                     red:   mix(na.r, nb.r),
+                     green: mix(na.g, nb.g),
+                     blue:  mix(na.b, nb.b),
                      opacity: 1)
     }
 }

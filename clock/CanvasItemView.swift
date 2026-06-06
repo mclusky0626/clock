@@ -73,8 +73,8 @@ struct CanvasItemView: View {
                 .frame(width: item.size.width, height: item.size.height)
                 .contentShape(Rectangle())
         case .photo(let imageID):
-            if let nsImage = state.images[imageID] {
-                Image(nsImage: nsImage)
+            if let img = state.images[imageID] {
+                Image(platformImage: img)
                     .resizable()
                     .scaledToFill()
                     .frame(width: item.size.width, height: item.size.height)

@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 struct PersistedColor: Codable, Equatable {
     var red: Double
@@ -12,11 +11,11 @@ struct PersistedColor: Codable, Equatable {
     }
 
     init(color: Color) {
-        let ns = NSColor(color).usingColorSpace(.sRGB) ?? .black
-        self.red = Double(ns.redComponent)
-        self.green = Double(ns.greenComponent)
-        self.blue = Double(ns.blueComponent)
-        self.alpha = Double(ns.alphaComponent)
+        let c = color.platformRGBA
+        self.red = c.r
+        self.green = c.g
+        self.blue = c.b
+        self.alpha = c.a
     }
 
     var color: Color {

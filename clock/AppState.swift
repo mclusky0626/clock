@@ -1,8 +1,13 @@
 import SwiftUI
-import AppKit
 import AVFoundation
 import UniformTypeIdentifiers
 import Observation
+#if canImport(AppKit)
+import AppKit
+#endif
+#if canImport(AudioToolbox)
+import AudioToolbox
+#endif
 
 enum CanvasMode: String, CaseIterable, Identifiable, Codable {
     case clock = "시계"
@@ -246,8 +251,13 @@ final class AppState {
     var language: AppLanguage = .korean
 
     var items: [CanvasItem]
-    var images: [UUID: NSImage] = [:]
+    var images: [UUID: PlatformImage] = [:]
     var selectedID: UUID?
+
+    // SwiftUI file-importer presentation flags (cross-platform replacement for NSOpenPanel)
+    var photoImporterShown = false
+    var backgroundImporterShown = false
+    var alarmImporterShown = false
 
     var backgroundColor: Color = .black
     var backgroundImageID: UUID?
@@ -320,7 +330,7 @@ final class AppState {
 
     // MARK: - Mutations
 
-    func addPhoto(_ image: NSImage) {
+    func addPhoto(_ image: PlatformImage) {
         let imageID = UUID()
         images[imageID] = image
         writeImage(image, id: imageID)
@@ -444,9 +454,15 @@ final class AppState {
         case .none:
             return
         case .system(let name):
+            #if os(macOS)
             let sound = NSSound(named: NSSound.Name(name))
             sound?.volume = alarmVolume
             sound?.play()
+            #else
+            // iOS has no named system-sound catalog; play a default alert tone.
+            _ = name
+            AudioServicesPlaySystemSound(1007)
+            #endif
         case .custom(let id):
             guard let alarm = customAlarms.first(where: { $0.id == id }) else { return }
             let url = Self.audioURL(for: alarm)
@@ -463,32 +479,31 @@ final class AppState {
         alarmPlayer?.stop()
     }
 
-    func presentCustomAlarmPicker() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.audio, .mp3, .mpeg4Audio, .wav, .aiff]
-        panel.title = t(.addAlarmTitle)
-        if panel.runModal() == .OK {
-            for url in panel.urls {
-                let id = UUID()
-                let ext = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
-                let dest = Self.audioDir.appendingPathComponent("\(id.uuidString).\(ext)")
-                do {
-                    try FileManager.default.copyItem(at: url, to: dest)
-                    let alarm = CustomAlarm(
-                        id: id,
-                        name: url.deletingPathExtension().lastPathComponent,
-                        fileExtension: ext
-                    )
-                    customAlarms.append(alarm)
-                    alarmChoice = .custom(id)
-                } catch {
-                    NSLog("Failed to copy alarm: \(error)")
-                }
+    func presentCustomAlarmPicker() { alarmImporterShown = true }
+
+    func handleAlarmImport(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result else { return }
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let id = UUID()
+            let ext = url.pathExtension.isEmpty ? "mp3" : url.pathExtension
+            let dest = Self.audioDir.appendingPathComponent("\(id.uuidString).\(ext)")
+            do {
+                try? FileManager.default.removeItem(at: dest)
+                try FileManager.default.copyItem(at: url, to: dest)
+                let alarm = CustomAlarm(
+                    id: id,
+                    name: url.deletingPathExtension().lastPathComponent,
+                    fileExtension: ext
+                )
+                customAlarms.append(alarm)
+                alarmChoice = .custom(id)
+            } catch {
+                NSLog("Failed to copy alarm: \(error)")
             }
-            scheduleSave()
         }
+        scheduleSave()
     }
 
     func deleteCustomAlarm(_ id: UUID) {
@@ -505,39 +520,36 @@ final class AppState {
 
     // MARK: - Photo / background picking
 
-    func presentPhotoPicker() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = true
-        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .heic, .webP]
-        panel.title = t(.choosePhotoTitle)
-        if panel.runModal() == .OK {
-            for url in panel.urls {
-                if let img = NSImage(contentsOf: url) {
-                    addPhoto(img)
-                }
+    func presentPhotoPicker() { photoImporterShown = true }
+
+    func handlePhotoImport(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result else { return }
+        for url in urls {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            if let img = PlatformImage.load(contentsOf: url) {
+                addPhoto(img)
             }
         }
     }
 
-    func presentBackgroundImagePicker() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = false
-        panel.allowsMultipleSelection = false
-        panel.allowedContentTypes = [.image, .png, .jpeg, .tiff, .heic, .webP]
-        panel.title = t(.chooseBgTitle)
-        if panel.runModal() == .OK, let url = panel.urls.first, let img = NSImage(contentsOf: url) {
-            let id = UUID()
-            images[id] = img
-            writeImage(img, id: id)
-            if let old = backgroundImageID {
-                images.removeValue(forKey: old)
-                deleteImageFile(id: old)
-            }
-            backgroundImageID = id
-            backgroundMode = .color
-            scheduleSave()
+    func presentBackgroundImagePicker() { backgroundImporterShown = true }
+
+    func handleBackgroundImport(_ result: Result<[URL], Error>) {
+        guard case let .success(urls) = result, let url = urls.first else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard let img = PlatformImage.load(contentsOf: url) else { return }
+        let id = UUID()
+        images[id] = img
+        writeImage(img, id: id)
+        if let old = backgroundImageID {
+            images.removeValue(forKey: old)
+            deleteImageFile(id: old)
         }
+        backgroundImageID = id
+        backgroundMode = .color
+        scheduleSave()
     }
 
     func clearBackgroundImage() {
@@ -571,8 +583,8 @@ final class AppState {
         audioDir.appendingPathComponent("\(alarm.id.uuidString).\(alarm.fileExtension)")
     }
 
-    func writeImage(_ image: NSImage, id: UUID) {
-        guard let data = image.pngData() else { return }
+    func writeImage(_ image: PlatformImage, id: UUID) {
+        guard let data = image.pngDataCompat() else { return }
         try? data.write(to: Self.imageURL(id: id))
     }
     func deleteImageFile(id: UUID) {
@@ -673,25 +685,17 @@ final class AppState {
 
         for item in items {
             if case let .photo(imageID) = item.kind {
-                if let img = NSImage(contentsOf: Self.imageURL(id: imageID)) {
+                if let img = PlatformImage.load(contentsOf: Self.imageURL(id: imageID)) {
                     images[imageID] = img
                 }
             }
         }
         if let bgID = backgroundImageID {
-            if let img = NSImage(contentsOf: Self.imageURL(id: bgID)) {
+            if let img = PlatformImage.load(contentsOf: Self.imageURL(id: bgID)) {
                 images[bgID] = img
             } else {
                 backgroundImageID = nil
             }
         }
-    }
-}
-
-extension NSImage {
-    func pngData() -> Data? {
-        guard let tiff = self.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff) else { return nil }
-        return rep.representation(using: .png, properties: [:])
     }
 }

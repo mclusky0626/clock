@@ -58,8 +58,7 @@ struct TopToolbar: View {
                         .padding(.horizontal, 12)
                         .glassControlChip(cornerRadius: 10)
                 }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
+                .macMenuChrome()
                 .fixedSize()
                 .help(state.t(.add))
 

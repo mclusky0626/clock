@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -72,3 +73,4 @@ enum WindowPinning {
         }
     }
 }
+#endif

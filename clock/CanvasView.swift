@@ -56,7 +56,7 @@ struct CanvasView: View {
         switch state.backgroundMode {
         case .color:
             if let bgID = state.backgroundImageID, let img = state.images[bgID] {
-                Image(nsImage: img)
+                Image(platformImage: img)
                     .resizable()
                     .scaledToFill()
             } else if state.autoTheme {
@@ -77,7 +77,7 @@ struct CanvasView: View {
         case .transparent:
             Color.clear
         case .translucent:
-            VisualEffectBackground(material: .hudWindow, blending: .behindWindow)
+            FrostedBackground()
                 .opacity(state.backgroundOpacity)
         case .glassOutline:
             Color.clear
