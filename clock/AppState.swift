@@ -273,6 +273,8 @@ final class AppState {
     var alarmVolume: Float = 0.8
     var customAlarms: [CustomAlarm] = []
 
+    var presets: [Preset] = []
+
     @ObservationIgnored private var alarmPlayer: AVAudioPlayer?
     @ObservationIgnored private var pendingSaveTask: Task<Void, Never>?
 
@@ -285,6 +287,7 @@ final class AppState {
         self.items = [clock]
         self.selectedID = clock.id
         load()
+        loadPresets()
         recomputeClockSize()
     }
 
@@ -570,11 +573,16 @@ final class AppState {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: url.appendingPathComponent("images"), withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: url.appendingPathComponent("audio"), withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: url.appendingPathComponent("presets"), withIntermediateDirectories: true)
         return url
     }()
     static var stateFile: URL { appSupportDir.appendingPathComponent("state.json") }
     static var imageDir: URL { appSupportDir.appendingPathComponent("images") }
     static var audioDir: URL { appSupportDir.appendingPathComponent("audio") }
+    static var presetsFile: URL { appSupportDir.appendingPathComponent("presets.json") }
+    static var presetsDir: URL { appSupportDir.appendingPathComponent("presets") }
+    static func presetDir(_ id: UUID) -> URL { presetsDir.appendingPathComponent(id.uuidString, isDirectory: true) }
+    static func presetImageDir(_ id: UUID) -> URL { presetDir(id).appendingPathComponent("images", isDirectory: true) }
 
     static func imageURL(id: UUID) -> URL {
         imageDir.appendingPathComponent("\(id.uuidString).png")
@@ -651,6 +659,19 @@ final class AppState {
     }
 
     func apply(_ s: PersistedState) {
+        applyVisual(s)
+        // Global preferences (intentionally not part of a visual preset).
+        alarmChoice = s.alarmChoice
+        alarmVolume = s.alarmVolume
+        customAlarms = s.customAlarms
+        alwaysOnTop = s.alwaysOnTop
+        language = s.language
+        loadImagesFromSharedStore()
+    }
+
+    /// Restores only the visual look — clock style, background, item/widget layout,
+    /// timer style. Shared by full state restore and preset application.
+    func applyVisual(_ s: PersistedState) {
         mode = s.mode
         clockStyle = ClockStyle(
             family: s.clockStyle.family,
@@ -667,22 +688,19 @@ final class AppState {
         )
         backgroundColor = s.backgroundColor.color
         backgroundImageID = s.backgroundImageID
-        timerDurationSeconds = s.timerDuration
-        timerRemaining = s.timerDuration
-        alarmChoice = s.alarmChoice
-        alarmVolume = s.alarmVolume
-        customAlarms = s.customAlarms
-        alwaysOnTop = s.alwaysOnTop
-        timerStyle = s.timerStyle
-        timerDiskColor = s.timerDiskColor.color
-        language = s.language
         backgroundMode = s.backgroundMode
         autoTheme = s.autoTheme
         backgroundOpacity = s.backgroundOpacity
-
+        timerStyle = s.timerStyle
+        timerDiskColor = s.timerDiskColor.color
+        timerDurationSeconds = s.timerDuration
+        timerRemaining = s.timerDuration
         items = s.items.map { $0.toCanvasItem() }
         selectedID = nil
+    }
 
+    /// Loads photo/background bitmaps for the current items from the shared image store.
+    func loadImagesFromSharedStore() {
         for item in items {
             if case let .photo(imageID) = item.kind {
                 if let img = PlatformImage.load(contentsOf: Self.imageURL(id: imageID)) {
@@ -697,5 +715,84 @@ final class AppState {
                 backgroundImageID = nil
             }
         }
+    }
+
+    // MARK: - Presets
+
+    /// Image UUIDs a snapshot depends on (photo items + background image).
+    private func referencedImageIDs(in s: PersistedState) -> [UUID] {
+        var ids: [UUID] = []
+        for item in s.items where item.kind == .photo {
+            if let iid = item.imageID { ids.append(iid) }
+        }
+        if let bg = s.backgroundImageID { ids.append(bg) }
+        return ids
+    }
+
+    /// Captures the current look as a new named preset, copying referenced images so
+    /// the preset stays intact even if those items are later deleted.
+    func saveCurrentAsPreset(name: String? = nil) {
+        let id = UUID()
+        let snap = makeSnapshot()
+        let dir = Self.presetImageDir(id)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        for imgID in referencedImageIDs(in: snap) {
+            let src = Self.imageURL(id: imgID)
+            let dst = dir.appendingPathComponent("\(imgID.uuidString).png")
+            try? FileManager.default.copyItem(at: src, to: dst)
+        }
+        let preset = Preset(
+            id: id,
+            name: name ?? "\(t(.preset)) \(presets.count + 1)",
+            createdAt: Date(),
+            state: snap
+        )
+        presets.append(preset)
+        savePresets()
+    }
+
+    func applyPreset(_ id: UUID) {
+        guard let preset = presets.first(where: { $0.id == id }) else { return }
+        // Restore the preset's images into the shared store (and memory).
+        let dir = Self.presetImageDir(id)
+        for imgID in referencedImageIDs(in: preset.state) {
+            let shared = Self.imageURL(id: imgID)
+            if !FileManager.default.fileExists(atPath: shared.path) {
+                let copy = dir.appendingPathComponent("\(imgID.uuidString).png")
+                try? FileManager.default.copyItem(at: copy, to: shared)
+            }
+            if let img = PlatformImage.load(contentsOf: shared) { images[imgID] = img }
+        }
+        applyVisual(preset.state)
+        recomputeClockSize()
+        scheduleSave()
+    }
+
+    func renamePreset(_ id: UUID, to name: String) {
+        guard let i = presets.firstIndex(where: { $0.id == id }) else { return }
+        presets[i].name = name
+        savePresets()
+    }
+
+    func deletePreset(_ id: UUID) {
+        presets.removeAll { $0.id == id }
+        try? FileManager.default.removeItem(at: Self.presetDir(id))
+        savePresets()
+    }
+
+    func savePresets() {
+        do {
+            let data = try JSONEncoder().encode(presets)
+            try data.write(to: Self.presetsFile, options: .atomic)
+        } catch {
+            NSLog("Preset save failed: \(error)")
+        }
+    }
+
+    func loadPresets() {
+        guard let data = try? Data(contentsOf: Self.presetsFile),
+              let arr = try? JSONDecoder().decode([Preset].self, from: data)
+        else { return }
+        presets = arr
     }
 }

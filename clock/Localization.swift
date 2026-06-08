@@ -47,6 +47,9 @@ enum LKey {
     // Add menu / weather / widgets
     case add, weather, sticker, widget
 
+    // Presets
+    case preset, presets, savePreset, applyPreset, noPresets
+
     // Toolbar
     case addPhoto, background, removeBgImage, bgColor
     case pinOn, pinOff, closeStylePanel, openStylePanel
@@ -128,6 +131,12 @@ enum LKey {
         case .weather:          return ("날씨", "Weather")
         case .sticker:          return ("스티커", "Sticker")
         case .widget:           return ("위젯", "Widget")
+
+        case .preset:           return ("프리셋", "Preset")
+        case .presets:          return ("프리셋", "Presets")
+        case .savePreset:       return ("현재 화면 저장", "Save current")
+        case .applyPreset:      return ("적용", "Apply")
+        case .noPresets:        return ("저장된 프리셋이 없습니다", "No saved presets")
 
         case .addPhoto:         return ("사진 추가", "Add Photo")
         case .background:       return ("배경", "Background")

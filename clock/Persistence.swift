@@ -206,6 +206,16 @@ struct PersistedItem: Codable, Equatable {
     }
 }
 
+/// A named, self-contained snapshot of the whole look (clock style, background,
+/// item/widget layout, timer style). Referenced photos/background images are copied
+/// into the preset's own folder so it survives later edits.
+struct Preset: Identifiable, Codable {
+    var id: UUID
+    var name: String
+    var createdAt: Date
+    var state: PersistedState
+}
+
 struct PersistedState: Codable {
     var mode: CanvasMode
     var clockStyle: PersistedClockStyle

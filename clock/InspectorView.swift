@@ -40,6 +40,7 @@ struct InspectorView: View {
                             .padding(.top, 4)
                     }
                     backgroundSection
+                    presetSection
                     languageSection
                 }
                 .padding(18)
@@ -467,6 +468,103 @@ struct InspectorView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
         }
+    }
+
+    // MARK: Presets
+
+    private var presetSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel(state.t(.presets))
+
+            Button {
+                state.saveCurrentAsPreset()
+            } label: {
+                Label(state.t(.savePreset), systemImage: "square.and.arrow.down")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GlassButtonStyle(prominent: true))
+
+            if state.presets.isEmpty {
+                Text(state.t(.noPresets))
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            } else {
+                ForEach(state.presets) { preset in
+                    presetRow(preset)
+                }
+            }
+            divider
+        }
+    }
+
+    private func presetRow(_ preset: Preset) -> some View {
+        HStack(spacing: 10) {
+            presetPreview(preset)
+
+            TextField("", text: presetNameBinding(preset))
+                .textFieldStyle(.plain)
+                .font(.system(size: 13, weight: .medium))
+
+            Spacer(minLength: 2)
+
+            Button {
+                state.applyPreset(preset.id)
+            } label: {
+                Image(systemName: "arrow.down.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.accentColor)
+            }
+            .buttonStyle(.plain)
+            .help(state.t(.applyPreset))
+
+            Button {
+                state.deletePreset(preset.id)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(state.t(.delete))
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 8)
+        .glassControlChip(cornerRadius: 12)
+    }
+
+    /// A tiny snapshot of the preset's look: its background with the clock-color time.
+    @ViewBuilder
+    private func presetPreview(_ preset: Preset) -> some View {
+        let s = preset.state
+        ZStack {
+            Group {
+                if s.backgroundMode == .color && s.autoTheme {
+                    let c = TimeTheme.colors(for: Date())
+                    LinearGradient(colors: [c.top, c.bottom], startPoint: .top, endPoint: .bottom)
+                } else if s.backgroundMode == .transparent || s.backgroundMode == .glassOutline {
+                    Color.white.opacity(0.08)
+                } else {
+                    s.backgroundColor.color
+                }
+            }
+            Text("12:00")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(s.clockStyle.color.color)
+        }
+        .frame(width: 44, height: 28)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+        )
+    }
+
+    private func presetNameBinding(_ preset: Preset) -> Binding<String> {
+        Binding(
+            get: { state.presets.first(where: { $0.id == preset.id })?.name ?? "" },
+            set: { state.renamePreset(preset.id, to: $0) }
+        )
     }
 
     // MARK: Helpers
