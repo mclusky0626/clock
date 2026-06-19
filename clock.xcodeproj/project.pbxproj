@@ -250,18 +250,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = clock/clock.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				TARGETED_DEVICE_FAMILY = "1,2";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				"ENABLE_APP_SANDBOX[sdk=macosx*]" = YES;
+				"ENABLE_APP_SANDBOX[sdk=macosx*]" = NO;
 				"ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				"ENABLE_USER_SELECTED_FILES[sdk=macosx*]" = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "월간 캘린더 위젯에 Apple Calendar 일정을 표시하는 데 사용됩니다.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "월간 캘린더 위젯에 Apple Calendar 일정을 표시하는 데 사용됩니다.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치의 날씨를 자동으로 표시하는 데 사용됩니다.";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -289,18 +289,18 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = clock/clock.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
-				TARGETED_DEVICE_FAMILY = "1,2";
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				"ENABLE_APP_SANDBOX[sdk=macosx*]" = YES;
+				"ENABLE_APP_SANDBOX[sdk=macosx*]" = NO;
 				"ENABLE_OUTGOING_NETWORK_CONNECTIONS[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				"ENABLE_USER_SELECTED_FILES[sdk=macosx*]" = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "월간 캘린더 위젯에 Apple Calendar 일정을 표시하는 데 사용됩니다.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "월간 캘린더 위젯에 Apple Calendar 일정을 표시하는 데 사용됩니다.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "현재 위치의 날씨를 자동으로 표시하는 데 사용됩니다.";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

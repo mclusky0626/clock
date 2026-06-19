@@ -60,6 +60,14 @@ struct ContentView: View {
             allowedContentTypes: [.audio],
             allowsMultipleSelection: true
         ) { state.handleAlarmImport($0) }
+        .fileImporter(
+            isPresented: $s.htmlImporterShown,
+            allowedContentTypes: [
+                UTType(filenameExtension: "html") ?? .plainText,
+                UTType(filenameExtension: "htm") ?? .plainText
+            ],
+            allowsMultipleSelection: true
+        ) { state.handleHTMLImport($0) }
         .focusable()
         .focusEffectDisabled()
         .onKeyPress(.escape) {
@@ -87,6 +95,7 @@ struct ContentView: View {
         .onChange(of: state.backgroundMode) { _, _ in state.scheduleSave() }
         .onChange(of: state.autoTheme) { _, _ in state.scheduleSave() }
         .onChange(of: state.backgroundOpacity) { _, _ in state.scheduleSave() }
+        .onChange(of: state.rippleSettings) { _, _ in state.scheduleSave() }
         .onChange(of: state.timerDurationSeconds) { _, _ in state.scheduleSave() }
         .onChange(of: state.alarmVolume) { _, _ in state.scheduleSave() }
         .onChange(of: state.alarmChoice) { _, _ in state.scheduleSave() }

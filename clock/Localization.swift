@@ -228,6 +228,17 @@ extension WidgetKind {
         let ko = lang == .korean
         switch self {
         case .dateDay: return ko ? "날짜 · 요일" : "Date · Day"
+        case .monthCalendar: return ko ? "월간 캘린더" : "Month Calendar"
+        case .timerMini: return ko ? "미니 타이머" : "Mini Timer"
+        case .dayProgress: return ko ? "하루 진행률" : "Day Progress"
+        case .weekStrip: return ko ? "주간 스트립" : "Week Strip"
+        case .worldClock: return ko ? "세계시계" : "World Clock"
+        case .dDay: return ko ? "D-day" : "D-day"
+        case .systemMonitor: return ko ? "시스템 모니터" : "System Monitor"
+        case .todaySchedule: return ko ? "오늘 일정" : "Today Schedule"
+        case .nowPlayingMini: return ko ? "재생 중 · 미니" : "Now Playing · Mini"
+        case .nowPlayingCompact: return ko ? "재생 중 · 컴팩트" : "Now Playing · Compact"
+        case .nowPlayingCover: return ko ? "재생 중 · 커버" : "Now Playing · Cover"
         }
     }
 }

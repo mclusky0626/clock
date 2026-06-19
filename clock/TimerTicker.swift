@@ -9,12 +9,11 @@ struct TimerTicker: View {
             Color.clear
                 .frame(width: 0, height: 0)
                 .onChange(of: context.date) { _, newDate in
-                    if state.mode == .timer, state.timerRunning {
-                        if newDate.timeIntervalSince(lastTick) >= 0.95 {
+                    if newDate.timeIntervalSince(lastTick) >= 0.95 {
+                        if state.mode == .timer, state.timerRunning {
                             state.tickTimer()
-                            lastTick = newDate
                         }
-                    } else {
+                        state.tickWidgetTimers()
                         lastTick = newDate
                     }
                 }

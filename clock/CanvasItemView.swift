@@ -89,9 +89,15 @@ struct CanvasItemView: View {
                 .frame(width: item.size.width, height: item.size.height)
                 .contentShape(Rectangle())
         case .widget(let kind):
-            WidgetView(kind: kind)
+            WidgetView(kind: kind, itemID: item.id)
                 .frame(width: item.size.width, height: item.size.height)
                 .contentShape(Rectangle())
+        case .html:
+            HTMLWidgetView(settings: item.htmlSettings, language: state.language)
+                .frame(width: item.size.width, height: item.size.height)
+                .clipShape(RoundedRectangle(cornerRadius: item.cornerRadius, style: .continuous))
+                .shadow(color: .black.opacity(0.25), radius: item.shadowRadius, x: 0, y: item.shadowRadius * 0.25)
+                .contentShape(RoundedRectangle(cornerRadius: item.cornerRadius, style: .continuous))
         }
     }
 

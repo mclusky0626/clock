@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CanvasView: View {
     @Environment(AppState.self) private var state
+    @State private var ripples: [ClickRippleEvent] = []
 
     var body: some View {
         GeometryReader { geo in
@@ -13,8 +14,10 @@ struct CanvasView: View {
                     CanvasItemView(itemID: item.id)
                 }
                 TimerTicker()
+                ClickRippleLayer(ripples: ripples, settings: state.rippleSettings)
             }
             .frame(width: logical.width, height: logical.height)
+            .coordinateSpace(name: "logicalCanvas")
             .scaleEffect(scale)
             .frame(width: geo.size.width, height: geo.size.height)
             .background(backgroundLayer.ignoresSafeArea())
@@ -27,6 +30,12 @@ struct CanvasView: View {
             .onTapGesture {
                 state.selectedID = nil
             }
+            .simultaneousGesture(
+                SpatialTapGesture(coordinateSpace: .named("logicalCanvas"))
+                    .onEnded { value in
+                        addRipple(at: value.location)
+                    }
+            )
             .focusable()
             .focusEffectDisabled()
             .onKeyPress(.delete) {
@@ -49,6 +58,17 @@ struct CanvasView: View {
         state.items[i].transform.position.x += dx * 4
         state.items[i].transform.position.y += dy * 4
         return .handled
+    }
+
+    private func addRipple(at point: CGPoint) {
+        guard state.rippleSettings.enabled else { return }
+        let ripple = ClickRippleEvent(point: point)
+        let duration = state.rippleSettings.duration
+        ripples.append(ripple)
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64((duration + 0.25) * 1_000_000_000))
+            ripples.removeAll { $0.id == ripple.id }
+        }
     }
 
     @ViewBuilder

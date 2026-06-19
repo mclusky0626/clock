@@ -11,6 +11,11 @@ struct TopToolbar: View {
 
         GlassPanel(cornerRadius: 20) {
             HStack(alignment: .center, spacing: 8) {
+                ClockLogoMark()
+                    .help("Clock")
+
+                Divider().frame(height: 18).opacity(0.4)
+
                 ModeSegment(elementHeight: elementHeight)
                     .environment(state)
 
@@ -21,6 +26,11 @@ struct TopToolbar: View {
                         state.presentPhotoPicker()
                     } label: {
                         Label(state.t(.photo), systemImage: "photo")
+                    }
+                    Button {
+                        state.presentHTMLPicker()
+                    } label: {
+                        Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
                     }
                     Menu {
                         Button {
@@ -123,6 +133,36 @@ struct TopToolbar: View {
             .padding(.vertical, 10)
         }
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct ClockLogoMark: View {
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+
+            Circle()
+                .stroke(Color.primary.opacity(0.88), lineWidth: 1.6)
+                .frame(width: 17, height: 17)
+
+            Capsule(style: .continuous)
+                .fill(Color.primary.opacity(0.9))
+                .frame(width: 1.5, height: 6)
+                .offset(y: -2.5)
+
+            Capsule(style: .continuous)
+                .fill(Color.primary.opacity(0.75))
+                .frame(width: 1.4, height: 5.5)
+                .rotationEffect(.degrees(54))
+                .offset(x: 2.5, y: 1)
+
+            Circle()
+                .fill(Color.primary.opacity(0.95))
+                .frame(width: 2.6, height: 2.6)
+        }
+        .frame(width: 30, height: 30)
+        .accessibilityHidden(true)
     }
 }
 

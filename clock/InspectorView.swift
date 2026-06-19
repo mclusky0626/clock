@@ -27,8 +27,15 @@ struct InspectorView: View {
                             transformSection(itemID: id)
                             layerSection(id: id)
                             deleteSection
-                        case .widget:
+                        case .widget(let kind):
+                            widgetSection(itemID: id, kind: kind)
                             transformSection(itemID: id)
+                            layerSection(id: id)
+                            deleteSection
+                        case .html:
+                            htmlSection(itemID: id)
+                            transformSection(itemID: id)
+                            photoSection(itemID: id)
                             layerSection(id: id)
                             deleteSection
                         }
@@ -40,6 +47,7 @@ struct InspectorView: View {
                             .padding(.top, 4)
                     }
                     backgroundSection
+                    effectSection
                     presetSection
                     languageSection
                 }
@@ -59,6 +67,7 @@ struct InspectorView: View {
             case .photo:   return state.t(.photo)
             case .weather: return state.t(.sticker)
             case .widget:  return state.t(.widget)
+            case .html:    return "HTML"
             }
         }()
         return HStack {
@@ -361,6 +370,157 @@ struct InspectorView: View {
         }
     }
 
+    // MARK: HTML
+
+    private func htmlSection(itemID id: UUID) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("HTML")
+
+            Text(htmlSettings(id: id).displayName)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(1)
+
+            Toggle(isOn: htmlNetworkBinding(id: id)) {
+                Text(widgetText(ko: "인터넷 허용", en: "Allow Internet"))
+                    .font(.system(size: 13))
+            }
+            .toggleStyle(.switch)
+            .tint(.blue)
+
+            Button {
+                state.reloadHTMLWidget(id)
+            } label: {
+                Label(widgetText(ko: "다시 불러오기", en: "Reload"), systemImage: "arrow.clockwise")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GlassButtonStyle())
+
+            divider
+        }
+    }
+
+    // MARK: Widget
+
+    private func widgetSection(itemID id: UUID, kind: WidgetKind) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel(widgetText(ko: "위젯 설정", en: "Widget Settings"))
+
+            row(widgetText(ko: "강조색", en: "Accent")) {
+                ColorPicker("", selection: widgetAccentBinding(id: id), supportsOpacity: false)
+                    .labelsHidden()
+                    .frame(width: 40)
+            }
+
+            if kind == .timerMini {
+                HStack(spacing: 6) {
+                    timerField(value: widgetTimerHoursBinding(id: id), range: 0...99, suffix: state.t(.hourSuffix))
+                    Text(":").font(.system(size: 16, weight: .light)).foregroundStyle(.secondary)
+                    timerField(value: widgetTimerMinutesBinding(id: id), range: 0...59, suffix: state.t(.minuteSuffix))
+                    Text(":").font(.system(size: 16, weight: .light)).foregroundStyle(.secondary)
+                    timerField(value: widgetTimerSecondsBinding(id: id), range: 0...59, suffix: state.t(.secondSuffix))
+                }
+
+                HStack(spacing: 8) {
+                    Button {
+                        if widgetSettings(id: id).timerRunning {
+                            state.pauseWidgetTimer(id)
+                        } else {
+                            state.startWidgetTimer(id)
+                        }
+                    } label: {
+                        Label(
+                            widgetSettings(id: id).timerRunning ? state.t(.pause) : state.t(.start),
+                            systemImage: widgetSettings(id: id).timerRunning ? "pause.fill" : "play.fill"
+                        )
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(GlassButtonStyle(prominent: true))
+
+                    Button {
+                        state.resetWidgetTimer(id)
+                    } label: {
+                        Label(state.t(.reset), systemImage: "arrow.counterclockwise")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(GlassButtonStyle())
+                }
+            }
+
+            if kind == .monthCalendar {
+                HStack(spacing: 8) {
+                    timerField(value: calendarYearBinding(id: id), range: 1970...2100, suffix: widgetText(ko: "년", en: "Y"))
+                    timerField(value: calendarMonthBinding(id: id), range: 1...12, suffix: widgetText(ko: "월", en: "M"))
+                }
+
+                Button {
+                    setCalendarToCurrentMonth(id: id)
+                } label: {
+                    Label(widgetText(ko: "현재 달", en: "Current Month"), systemImage: "calendar")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(GlassButtonStyle())
+
+                Toggle(isOn: calendarEventsBinding(id: id)) {
+                    Text(widgetText(ko: "Apple Calendar 일정", en: "Apple Calendar Events"))
+                        .font(.system(size: 13))
+                }
+                .toggleStyle(.switch)
+                .tint(.blue)
+
+                if state.calendarPermissionDenied {
+                    Text(widgetText(ko: "캘린더 권한이 꺼져 있습니다.", en: "Calendar access is disabled."))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if kind == .worldClock {
+                TextField(widgetText(ko: "표시 이름", en: "Display Name"), text: worldClockTitleBinding(id: id))
+                    .textFieldStyle(.roundedBorder)
+
+                row(widgetText(ko: "시간대", en: "Zone")) {
+                    Picker("", selection: timeZoneBinding(id: id)) {
+                        ForEach(worldClockTimeZones, id: \.identifier) { option in
+                            Text(option.name).tag(option.identifier)
+                        }
+                    }
+                    .labelsHidden()
+                }
+            }
+
+            if kind == .dDay {
+                TextField("D-Day", text: dDayTitleBinding(id: id))
+                    .textFieldStyle(.roundedBorder)
+
+                DatePicker(
+                    widgetText(ko: "목표일", en: "Target"),
+                    selection: dDayDateBinding(id: id),
+                    displayedComponents: .date
+                )
+                .font(.system(size: 13))
+            }
+
+            if kind == .todaySchedule {
+                Button {
+                    state.refreshCalendarEvents(forMonthContaining: .now)
+                } label: {
+                    Label(widgetText(ko: "일정 새로고침", en: "Refresh Events"), systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(GlassButtonStyle())
+
+                if state.calendarPermissionDenied {
+                    Text(widgetText(ko: "캘린더 권한이 꺼져 있습니다.", en: "Calendar access is disabled."))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            divider
+        }
+    }
+
     // MARK: Layer
 
     private func layerSection(id: UUID) -> some View {
@@ -448,6 +608,47 @@ struct InspectorView: View {
                     range: 0...1,
                     step: 0.01,
                     display: { String(format: "%.0f%%", $0 * 100) }
+                )
+            }
+            divider
+        }
+    }
+
+    // MARK: Effects
+
+    private var effectSection: some View {
+        @Bindable var s = state
+        return VStack(alignment: .leading, spacing: 10) {
+            sectionLabel(widgetText(ko: "효과", en: "Effects"))
+
+            Toggle(isOn: $s.rippleSettings.enabled) {
+                Text(widgetText(ko: "클릭 글래스 파동", en: "Click Ripple"))
+                    .font(.system(size: 13))
+            }
+            .toggleStyle(.switch)
+            .tint(.blue)
+
+            if state.rippleSettings.enabled {
+                slider(
+                    label: widgetText(ko: "강도", en: "Power"),
+                    value: $s.rippleSettings.intensity,
+                    range: 0.1...1,
+                    step: 0.01,
+                    display: { String(format: "%.0f%%", $0 * 100) }
+                )
+                slider(
+                    label: widgetText(ko: "반경", en: "Radius"),
+                    value: $s.rippleSettings.radius,
+                    range: 80...520,
+                    step: 1,
+                    display: { String(format: "%.0f", $0) }
+                )
+                slider(
+                    label: widgetText(ko: "시간", en: "Time"),
+                    value: $s.rippleSettings.duration,
+                    range: 0.25...1.8,
+                    step: 0.01,
+                    display: { String(format: "%.2fs", $0) }
                 )
             }
             divider
@@ -661,6 +862,219 @@ struct InspectorView: View {
             get: { guard let i = state.index(of: id) else { return 0 }; return state.items[i].shadowRadius },
             set: { guard let i = state.index(of: id) else { return }; state.items[i].shadowRadius = $0 }
         )
+    }
+
+    private func widgetText(ko: String, en: String) -> String {
+        state.language == .korean ? ko : en
+    }
+
+    private func widgetSettings(id: UUID) -> WidgetSettings {
+        guard let i = state.index(of: id) else { return WidgetSettings() }
+        return state.items[i].widgetSettings
+    }
+
+    private func htmlSettings(id: UUID) -> HTMLWidgetSettings {
+        guard let i = state.index(of: id) else { return HTMLWidgetSettings() }
+        return state.items[i].htmlSettings
+    }
+
+    private func htmlNetworkBinding(id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { htmlSettings(id: id).allowsNetwork },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].htmlSettings.allowsNetwork = $0
+                state.items[i].htmlSettings.reloadNonce += 1
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private func widgetAccentBinding(id: UUID) -> Binding<Color> {
+        Binding(
+            get: { widgetSettings(id: id).accentColor },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.accentColor = $0
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private var worldClockTimeZones: [(identifier: String, name: String)] {
+        let base: [(identifier: String, name: String)] = [
+            ("Asia/Seoul", "Seoul"),
+            ("Asia/Tokyo", "Tokyo"),
+            ("Asia/Shanghai", "Shanghai"),
+            ("Europe/London", "London"),
+            ("Europe/Paris", "Paris"),
+            ("America/New_York", "New York"),
+            ("America/Chicago", "Chicago"),
+            ("America/Denver", "Denver"),
+            ("America/Los_Angeles", "Los Angeles"),
+            ("UTC", "UTC")
+        ]
+        guard let id = state.selectedID else { return base }
+        let current = widgetSettings(id: id).timeZoneIdentifier
+        if base.contains(where: { $0.0 == current }) { return base }
+        let name = current.split(separator: "/").last?.replacingOccurrences(of: "_", with: " ") ?? current
+        return [(current, name)] + base
+    }
+
+    private func timeZoneBinding(id: UUID) -> Binding<String> {
+        Binding(
+            get: { widgetSettings(id: id).timeZoneIdentifier },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.timeZoneIdentifier = $0
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private func worldClockTitleBinding(id: UUID) -> Binding<String> {
+        Binding(
+            get: { widgetSettings(id: id).worldClockTitle },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.worldClockTitle = $0
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private func dDayTitleBinding(id: UUID) -> Binding<String> {
+        Binding(
+            get: { widgetSettings(id: id).dDayTitle },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.dDayTitle = $0
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private func dDayDateBinding(id: UUID) -> Binding<Date> {
+        Binding(
+            get: { widgetSettings(id: id).dDayDate },
+            set: {
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.dDayDate = $0
+                state.scheduleSave()
+            }
+        )
+    }
+
+    private func widgetTimerHoursBinding(id: UUID) -> Binding<Int> {
+        Binding(
+            get: { widgetSettings(id: id).timerDurationSeconds / 3600 },
+            set: { newH in
+                let s = widgetSettings(id: id)
+                applyWidgetTimer(id: id, h: newH, m: (s.timerDurationSeconds % 3600) / 60, s: s.timerDurationSeconds % 60)
+            }
+        )
+    }
+
+    private func widgetTimerMinutesBinding(id: UUID) -> Binding<Int> {
+        Binding(
+            get: { (widgetSettings(id: id).timerDurationSeconds % 3600) / 60 },
+            set: { newM in
+                let s = widgetSettings(id: id)
+                applyWidgetTimer(id: id, h: s.timerDurationSeconds / 3600, m: newM, s: s.timerDurationSeconds % 60)
+            }
+        )
+    }
+
+    private func widgetTimerSecondsBinding(id: UUID) -> Binding<Int> {
+        Binding(
+            get: { widgetSettings(id: id).timerDurationSeconds % 60 },
+            set: { newS in
+                let s = widgetSettings(id: id)
+                applyWidgetTimer(id: id, h: s.timerDurationSeconds / 3600, m: (s.timerDurationSeconds % 3600) / 60, s: newS)
+            }
+        )
+    }
+
+    private func applyWidgetTimer(id: UUID, h: Int, m: Int, s: Int) {
+        guard let i = state.index(of: id) else { return }
+        let total = max(1, h * 3600 + m * 60 + s)
+        state.items[i].widgetSettings.timerDurationSeconds = total
+        if !state.items[i].widgetSettings.timerRunning {
+            state.items[i].widgetSettings.timerRemaining = total
+        }
+        state.scheduleSave()
+    }
+
+    private func calendarYearBinding(id: UUID) -> Binding<Int> {
+        Binding(
+            get: {
+                let date = calendarDisplayDate(id: id)
+                return Calendar.current.component(.year, from: date)
+            },
+            set: { year in
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.calendarYear = year
+                if state.items[i].widgetSettings.calendarMonth == nil {
+                    state.items[i].widgetSettings.calendarMonth = Calendar.current.component(.month, from: .now)
+                }
+                state.scheduleSave()
+                if state.items[i].widgetSettings.showsCalendarEvents {
+                    state.refreshCalendarEvents(forMonthContaining: calendarDisplayDate(id: id))
+                }
+            }
+        )
+    }
+
+    private func calendarMonthBinding(id: UUID) -> Binding<Int> {
+        Binding(
+            get: {
+                let date = calendarDisplayDate(id: id)
+                return Calendar.current.component(.month, from: date)
+            },
+            set: { month in
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.calendarMonth = month
+                if state.items[i].widgetSettings.calendarYear == nil {
+                    state.items[i].widgetSettings.calendarYear = Calendar.current.component(.year, from: .now)
+                }
+                state.scheduleSave()
+                if state.items[i].widgetSettings.showsCalendarEvents {
+                    state.refreshCalendarEvents(forMonthContaining: calendarDisplayDate(id: id))
+                }
+            }
+        )
+    }
+
+    private func calendarEventsBinding(id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { widgetSettings(id: id).showsCalendarEvents },
+            set: { enabled in
+                guard let i = state.index(of: id) else { return }
+                state.items[i].widgetSettings.showsCalendarEvents = enabled
+                state.scheduleSave()
+                if enabled { state.refreshCalendarEvents(forMonthContaining: calendarDisplayDate(id: id)) }
+            }
+        )
+    }
+
+    private func setCalendarToCurrentMonth(id: UUID) {
+        guard let i = state.index(of: id) else { return }
+        state.items[i].widgetSettings.calendarYear = nil
+        state.items[i].widgetSettings.calendarMonth = nil
+        state.scheduleSave()
+        if state.items[i].widgetSettings.showsCalendarEvents {
+            state.refreshCalendarEvents(forMonthContaining: .now)
+        }
+    }
+
+    private func calendarDisplayDate(id: UUID) -> Date {
+        let settings = widgetSettings(id: id)
+        let cal = Calendar.current
+        if let year = settings.calendarYear, let month = settings.calendarMonth,
+           let date = cal.date(from: DateComponents(year: year, month: month, day: 1)) {
+            return date
+        }
+        return .now
     }
 
     // Timer H/M/S fields

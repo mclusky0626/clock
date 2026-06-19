@@ -117,11 +117,119 @@ struct PersistedTransform: Codable, Equatable {
     }
 }
 
+struct PersistedWidgetSettings: Codable, Equatable {
+    var accentColor: PersistedColor
+    var timerDurationSeconds: Int
+    var timerRemaining: Int
+    var timerRunning: Bool
+    var calendarYear: Int?
+    var calendarMonth: Int?
+    var showsCalendarEvents: Bool
+    var timeZoneIdentifier: String
+    var worldClockTitle: String
+    var dDayTitle: String
+    var dDayDate: Date
+
+    init(settings: WidgetSettings) {
+        accentColor = PersistedColor(color: settings.accentColor)
+        timerDurationSeconds = settings.timerDurationSeconds
+        timerRemaining = settings.timerRemaining
+        timerRunning = settings.timerRunning
+        calendarYear = settings.calendarYear
+        calendarMonth = settings.calendarMonth
+        showsCalendarEvents = settings.showsCalendarEvents
+        timeZoneIdentifier = settings.timeZoneIdentifier
+        worldClockTitle = settings.worldClockTitle
+        dDayTitle = settings.dDayTitle
+        dDayDate = settings.dDayDate
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        accentColor = (try? c.decode(PersistedColor.self, forKey: .accentColor))
+            ?? PersistedColor(red: 1, green: 1, blue: 1, alpha: 1)
+        timerDurationSeconds = (try? c.decode(Int.self, forKey: .timerDurationSeconds)) ?? 5 * 60
+        timerRemaining = (try? c.decode(Int.self, forKey: .timerRemaining)) ?? timerDurationSeconds
+        timerRunning = (try? c.decode(Bool.self, forKey: .timerRunning)) ?? false
+        calendarYear = try? c.decodeIfPresent(Int.self, forKey: .calendarYear)
+        calendarMonth = try? c.decodeIfPresent(Int.self, forKey: .calendarMonth)
+        showsCalendarEvents = (try? c.decode(Bool.self, forKey: .showsCalendarEvents)) ?? false
+        timeZoneIdentifier = (try? c.decode(String.self, forKey: .timeZoneIdentifier)) ?? TimeZone.current.identifier
+        worldClockTitle = (try? c.decode(String.self, forKey: .worldClockTitle)) ?? ""
+        dDayTitle = (try? c.decode(String.self, forKey: .dDayTitle)) ?? "D-Day"
+        dDayDate = (try? c.decode(Date.self, forKey: .dDayDate))
+            ?? (Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now)) ?? .now)
+    }
+
+    var settings: WidgetSettings {
+        WidgetSettings(
+            accentColor: accentColor.color,
+            timerDurationSeconds: timerDurationSeconds,
+            timerRemaining: timerRemaining,
+            timerRunning: timerRunning,
+            calendarYear: calendarYear,
+            calendarMonth: calendarMonth,
+            showsCalendarEvents: showsCalendarEvents,
+            timeZoneIdentifier: timeZoneIdentifier,
+            worldClockTitle: worldClockTitle,
+            dDayTitle: dDayTitle,
+            dDayDate: dDayDate
+        )
+    }
+}
+
 enum PersistedItemKind: String, Codable {
     case clock
     case photo
     case weather
     case widget
+    case html
+}
+
+struct PersistedHTMLWidgetSettings: Codable, Equatable {
+    var resourceID: UUID
+    var entryFileName: String
+    var displayName: String
+    var allowsNetwork: Bool
+
+    init(settings: HTMLWidgetSettings) {
+        resourceID = settings.resourceID
+        entryFileName = settings.entryFileName
+        displayName = settings.displayName
+        allowsNetwork = settings.allowsNetwork
+    }
+
+    var settings: HTMLWidgetSettings {
+        HTMLWidgetSettings(
+            resourceID: resourceID,
+            entryFileName: entryFileName,
+            displayName: displayName,
+            allowsNetwork: allowsNetwork
+        )
+    }
+}
+
+struct PersistedClickRippleSettings: Codable, Equatable {
+    var enabled: Bool
+    var intensity: Double
+    var radius: CGFloat
+    var duration: Double
+
+    init(settings: ClickRippleSettings) {
+        enabled = settings.enabled
+        intensity = settings.intensity
+        radius = settings.radius
+        duration = settings.duration
+    }
+
+    var settings: ClickRippleSettings {
+        ClickRippleSettings(
+            enabled: enabled,
+            intensity: intensity,
+            radius: radius,
+            duration: duration
+        )
+    }
 }
 
 struct PersistedItem: Codable, Equatable {
@@ -130,11 +238,13 @@ struct PersistedItem: Codable, Equatable {
     var imageID: UUID?
     var weatherKind: WeatherKind?
     var widgetKind: WidgetKind?
+    var htmlSettings: PersistedHTMLWidgetSettings?
     var transform: PersistedTransform
     var width: CGFloat
     var height: CGFloat
     var cornerRadius: CGFloat
     var shadowRadius: CGFloat
+    var widgetSettings: PersistedWidgetSettings?
 
     static func from(_ item: CanvasItem) -> PersistedItem {
         let imgID: UUID? = {
@@ -149,12 +259,17 @@ struct PersistedItem: Codable, Equatable {
             if case let .widget(k) = item.kind { return k }
             return nil
         }()
+        let htmlSettings: PersistedHTMLWidgetSettings? = {
+            if case .html = item.kind { return PersistedHTMLWidgetSettings(settings: item.htmlSettings) }
+            return nil
+        }()
         let kind: PersistedItemKind = {
             switch item.kind {
             case .clock:   return .clock
             case .photo:   return .photo
             case .weather: return .weather
             case .widget:  return .widget
+            case .html:    return .html
             }
         }()
         return PersistedItem(
@@ -163,6 +278,7 @@ struct PersistedItem: Codable, Equatable {
             imageID: imgID,
             weatherKind: wKind,
             widgetKind: wgKind,
+            htmlSettings: htmlSettings,
             transform: PersistedTransform(
                 x: item.transform.position.x,
                 y: item.transform.position.y,
@@ -175,7 +291,8 @@ struct PersistedItem: Codable, Equatable {
             width: item.size.width,
             height: item.size.height,
             cornerRadius: item.cornerRadius,
-            shadowRadius: item.shadowRadius
+            shadowRadius: item.shadowRadius,
+            widgetSettings: PersistedWidgetSettings(settings: item.widgetSettings)
         )
     }
 
@@ -186,6 +303,7 @@ struct PersistedItem: Codable, Equatable {
             case .photo:   return .photo(imageID: imageID ?? UUID())
             case .weather: return .weather(weatherKind ?? .sunny)
             case .widget:  return .widget(widgetKind ?? .dateDay)
+            case .html:    return .html
             }
         }()
         return CanvasItem(
@@ -201,7 +319,14 @@ struct PersistedItem: Codable, Equatable {
             ),
             size: .init(width: width, height: height),
             cornerRadius: cornerRadius,
-            shadowRadius: shadowRadius
+            shadowRadius: shadowRadius,
+            widgetSettings: widgetSettings?.settings ?? {
+                if case let .widget(kind) = itemKind {
+                    return WidgetSettings.defaults(for: kind)
+                }
+                return WidgetSettings()
+            }(),
+            htmlSettings: htmlSettings?.settings ?? HTMLWidgetSettings()
         )
     }
 }
@@ -233,12 +358,13 @@ struct PersistedState: Codable {
     var backgroundMode: BackgroundMode = .color
     var autoTheme: Bool = false
     var backgroundOpacity: Double = 0.65
+    var rippleSettings: PersistedClickRippleSettings = PersistedClickRippleSettings(settings: ClickRippleSettings())
 
     enum CodingKeys: CodingKey {
         case mode, clockStyle, items, backgroundColor, backgroundImageID
         case timerDuration, alarmChoice, alarmVolume, customAlarms, alwaysOnTop
         case timerStyle, timerDiskColor, language
-        case backgroundMode, autoTheme, backgroundOpacity
+        case backgroundMode, autoTheme, backgroundOpacity, rippleSettings
     }
 
     init(
@@ -257,7 +383,8 @@ struct PersistedState: Codable {
         language: AppLanguage,
         backgroundMode: BackgroundMode,
         autoTheme: Bool,
-        backgroundOpacity: Double
+        backgroundOpacity: Double,
+        rippleSettings: PersistedClickRippleSettings
     ) {
         self.mode = mode; self.clockStyle = clockStyle; self.items = items
         self.backgroundColor = backgroundColor; self.backgroundImageID = backgroundImageID
@@ -268,6 +395,7 @@ struct PersistedState: Codable {
         self.language = language
         self.backgroundMode = backgroundMode; self.autoTheme = autoTheme
         self.backgroundOpacity = backgroundOpacity
+        self.rippleSettings = rippleSettings
     }
 
     init(from decoder: Decoder) throws {
@@ -289,5 +417,7 @@ struct PersistedState: Codable {
         backgroundMode = (try? c.decode(BackgroundMode.self, forKey: .backgroundMode)) ?? .color
         autoTheme = (try? c.decode(Bool.self, forKey: .autoTheme)) ?? false
         backgroundOpacity = (try? c.decode(Double.self, forKey: .backgroundOpacity)) ?? 0.65
+        rippleSettings = (try? c.decode(PersistedClickRippleSettings.self, forKey: .rippleSettings))
+            ?? PersistedClickRippleSettings(settings: ClickRippleSettings())
     }
 }
